@@ -3,22 +3,52 @@
 'use strict';
 
 angular.module('Dogui', [
+	'ngAnimate',
+	'ui.bootstrap',
+	'ui.router',	
 	'Dogui.controllers',
 	'Dogui.directives',
-	'Dogui.services',
-	'ui.bootstrap',
-	'ui.router'
+	'Dogui.services'
 ]).config(['$stateProvider', '$urlRouterProvider', function($stateProvider, $urlRouterProvider) {
 	$stateProvider
 		.state('connections', {
 			url: '/',
+			templateUrl: './views/connections.html',
+			controller: 'connectionsController',
+			abstract: true
+		})
+		.state('connections.list', {
+			url: '',
+			templateUrl: './views/connections.list.html',
+			controller: 'connectionsListController'
+		})
+		.state('connections.new', {
+			url: 'new',
+			templateUrl: './views/connections.new.html',
+			controller: 'connectionsNewController'
+		})
+		.state('connections.edit', {
+			url: 'edit',
+			templateUrl: './views/connections.edit.html',
+			controller: 'connectionsEditController',
+			params: {
+				connection: {}
+			}
+		})
+		.state('connected', {
+			url: '/dashboard',
+			templateUrl: './views/main.html',
+			abstract: true
+		})
+		.state('connected.dashboard', {
+			url: '',
 			templateUrl: './views/dashboard.html',
-			controller: 'connectionsController'
+			controller: 'dashboardController'
 		});
 
 	$urlRouterProvider.otherwise('/');
 }]);
-
+	
 }());
 
 // var Docker = require('dockerode'),
@@ -41,42 +71,67 @@ angular.module('Dogui', [
 'use strict';
 
 angular.module('Dogui.controllers', ['Dogui.services'])
-	.controller('connectionsController', ['db', 'DockerConn', function(db, DockerConn) {
-		DockerConn.findAll(function(data) {
-			_.forEach(data, function(tt) {
-				console.table(tt);
-			});
+	.controller('mainController', ['$scope', '$timeout', function($scope, $timeout) {
+
+	}])
+	.controller('connectionsController', ['$scope', '$state', '$timeout', function($scope, $state, $timeout) {
+		$scope.$on('tabChange', function(event, data) {
+			$scope.currentTab = data;
 		});
+	}])
+	.controller('connectionsListController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		$scope.$emit('tabChange', $state.current.name);
 
+		$scope.editConnection = function(connection) {
+			$state.go('connections.edit', {connection: connection}, {});
+		};
 
-		// docker = docker.init();
+		DockerConn.findAll(function(connections, err) {
+			$scope.dockerConnections = connections;
+		});	
+	}])
+	.controller('connectionsNewController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		$scope.$emit('tabChange', $state.current.name);
 
-		// docker.listContainers({
-		// 	all: true
-		// }, function(err, containers) {
-		// 	console.log(containers);
-		// });	
+		$scope.newConnection = DockerConn.defaults;
 
-		// var docker = new Docker({
-		// 	host: '192.168.59.103',
-		// 	protocol: 'https',
-		// 	port: 2376,
-		// 	cert: fs.readFileSync('/Users/arkade/.boot2docker/certs/boot2docker-vm/cert.pem'),
-		// 	ca: fs.readFileSync('/Users/arkade/.boot2docker/certs/boot2docker-vm/ca.pem'),
-		// 	key: fs.readFileSync('/Users/arkade/.boot2docker/certs/boot2docker-vm/key.pem')
-		// });
+		$scope.saveConnection = function() {
+			var dockerConn = DockerConn.new($scope.newConnection);
 
-		// docker.listContainers({all: true}, function(err, containers) {
-		// 	console.log(containers);
-		// });		
-	}]);
+			dockerConn.save(function(connection) {
+				$state.go('connections.list');
+			});
+		};
+	}])
+	.controller('connectionsEditController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		$scope.newConnection = $state.params.connection;
+
+		if(!$scope.newConnection) return $state.go('connections.list');
+
+		$scope.saveConnection = function() {
+			//update here
+			$state.go('connections.list');
+		};
+	}])
+	.controller('dashboardController', function() {
+
+	});
 }());
 
 (function() {
 
 'use strict';
 
-angular.module('Dogui.directives', []);
+angular.module('Dogui.directives', [])
+	.directive('showAddConnection', ['$timeout', function($timeout) {
+		return {
+			scope: {
+				showAddConnection: '='
+			},
+			link: function(scope, element, attrs) {
+			}
+		};
+	}]);
 
 }());
 
@@ -131,13 +186,21 @@ angular.module('Dogui.services', [])
 					key: key
 				});
 			},
-			save: function() {
+			save: function(cb) {
 				db.loadCollections(['dockerConnections']);
 
-				return db.dockerConnections.save({
+				var data = db.dockerConnections.save({
 					name: this.name,
-					configs: this.config
+					config: this.config
 				});
+
+				return cb(data);
+			}
+		};
+
+		return 	{
+			new: function(opts) {
+				return new DockerConn(opts);
 			},
 			find: function(id, cb) {
 				db.loadCollections(['dockerConnections']);
@@ -148,10 +211,19 @@ angular.module('Dogui.services', [])
 				db.loadCollections(['dockerConnections']);
 				var data = db.dockerConnections.find();
 				return cb(data);
+			},
+			defaults: {
+				name: 'New Connection',
+				config: {
+					host: '192.168.59.103',
+					protocol: 'https',
+					port: '',
+					cert: '',
+					ca: '',
+					key: ''
+				}
 			}
 		};
-
-		return new DockerConn();
 	}]);
 
 	

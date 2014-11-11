@@ -1,0 +1,41 @@
+<div class="panel panel-default">
+	<div class="panel-heading">
+		<h3 class="panel-title">Add New Connection</h3>
+	</div>
+	<div class="panel-body">
+		<form role="form">
+			<div class="form-group">
+			<label for="connectionName">Name</label>
+			<input type="text" class="form-control" id="connectionName" placeholder="Name" ng-model="newConnection.name">
+			</div>
+
+			<div class="form-group">
+			<label for="connectionHost">Host</label>
+			<input type="text" class="form-control" id="connectionHost" placeholder="Host" ng-model="newConnection.config.host">
+			</div>
+
+			<div class="form-group">
+			<label for="connectionPort">Port</label>
+			<input type="text" class="form-control" id="connectionPort" placeholder="Port" ng-model="newConnection.config.port">
+			</div>
+
+			<div class="form-group">
+			<label for="connectionPort">Certificate</label>
+			<input type="text" class="form-control" id="connectionPort" placeholder="Certificate" ng-model="newConnection.config.cert">
+			</div>
+
+			<div class="form-group">
+			<label for="connectionPort">CA</label>
+			<input type="text" class="form-control" id="connectionPort" placeholder="CA">
+			</div>
+
+			<div class="form-group">
+			<label for="connectionPort">Key</label>
+			<input type="text" class="form-control" id="connectionPort" placeholder="Key">
+			</div>
+
+			<button type="submit" class="btn btn-success" ng-click="saveConnection()">Save Connection</button>
+			<button type="submit" class="btn btn-default pull-right" ng-click="saveConnection()">Cancel</button>
+		</form>
+	</div>
+</div>

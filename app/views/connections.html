@@ -1,0 +1,17 @@
+<div id="main" class="no-sidebar">
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-sm-12">
+				<div class="btn-group half-gutter">
+				  <button type="button" class="btn btn-default" ui-sref="connections.list" ng-class="{connections.list: 'active'}[currentTab]">Connections</button>
+				  <button type="button" class="btn btn-primary" ui-sref="connections.new" ng-class="{connections.new: 'active'}[currentTab]">Add new connection</button>
+				</div>
+			</div>
+		</div>	
+		<div class="row">
+			<div class="col-md-12">
+				<div ui-view></div>
+			</div>
+		</div>
+	</div>
+</div>

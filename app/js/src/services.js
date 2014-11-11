@@ -49,13 +49,21 @@ angular.module('Dogui.services', [])
 					key: key
 				});
 			},
-			save: function() {
+			save: function(cb) {
 				db.loadCollections(['dockerConnections']);
 
-				return db.dockerConnections.save({
+				var data = db.dockerConnections.save({
 					name: this.name,
-					configs: this.config
+					config: this.config
 				});
+
+				return cb(data);
+			}
+		};
+
+		return 	{
+			new: function(opts) {
+				return new DockerConn(opts);
 			},
 			find: function(id, cb) {
 				db.loadCollections(['dockerConnections']);
@@ -66,10 +74,19 @@ angular.module('Dogui.services', [])
 				db.loadCollections(['dockerConnections']);
 				var data = db.dockerConnections.find();
 				return cb(data);
+			},
+			defaults: {
+				name: 'New Connection',
+				config: {
+					host: '192.168.59.103',
+					protocol: 'https',
+					port: '',
+					cert: '',
+					ca: '',
+					key: ''
+				}
 			}
 		};
-
-		return new DockerConn();
 	}]);
 
 	

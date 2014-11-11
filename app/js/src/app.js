@@ -3,22 +3,52 @@
 'use strict';
 
 angular.module('Dogui', [
+	'ngAnimate',
+	'ui.bootstrap',
+	'ui.router',	
 	'Dogui.controllers',
 	'Dogui.directives',
-	'Dogui.services',
-	'ui.bootstrap',
-	'ui.router'
+	'Dogui.services'
 ]).config(['$stateProvider', '$urlRouterProvider', function($stateProvider, $urlRouterProvider) {
 	$stateProvider
 		.state('connections', {
 			url: '/',
+			templateUrl: './views/connections.html',
+			controller: 'connectionsController',
+			abstract: true
+		})
+		.state('connections.list', {
+			url: '',
+			templateUrl: './views/connections.list.html',
+			controller: 'connectionsListController'
+		})
+		.state('connections.new', {
+			url: 'new',
+			templateUrl: './views/connections.new.html',
+			controller: 'connectionsNewController'
+		})
+		.state('connections.edit', {
+			url: 'edit',
+			templateUrl: './views/connections.edit.html',
+			controller: 'connectionsEditController',
+			params: {
+				connection: {}
+			}
+		})
+		.state('connected', {
+			url: '/dashboard',
+			templateUrl: './views/main.html',
+			abstract: true
+		})
+		.state('connected.dashboard', {
+			url: '',
 			templateUrl: './views/dashboard.html',
-			controller: 'connectionsController'
+			controller: 'dashboardController'
 		});
 
 	$urlRouterProvider.otherwise('/');
 }]);
-
+	
 }());
 
 // var Docker = require('dockerode'),

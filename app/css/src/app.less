@@ -2,10 +2,19 @@
 
 * {
 	box-sizing: border-box;
+	outline: none;
 }
 
 body,html {
 	height: 100%;
+}
+
+.link {
+	cursor: pointer;
+}
+
+.half-gutter {
+	margin-bottom: @grid-gutter-width/2;
 }
 
 .container,.container-fluid {
@@ -42,8 +51,31 @@ body,html {
 }
 
 #main {
-
 	padding-left: 200px;
+}
+
+#main.no-sidebar {
+	padding-left: 0px;
+}
+
+.connection-list .panel.inner {
+	max-height: 200px;
+	overflow: scroll;
+	margin-bottom: 0;
+}
+
+.add-connection {
+	height: 0;
+	overflow: hidden;
+	transition: height .2s;
+}
+
+.add-connection .inner {
+	padding-top: @grid-gutter-width/2;
+}
+
+.add-connection.full-height {
+	height: 400px;
 }
 
 @media (min-width: @screen-md-min) {

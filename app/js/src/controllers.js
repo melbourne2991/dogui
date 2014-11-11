@@ -3,33 +3,49 @@
 'use strict';
 
 angular.module('Dogui.controllers', ['Dogui.services'])
-	.controller('connectionsController', ['db', 'DockerConn', function(db, DockerConn) {
-		DockerConn.findAll(function(data) {
-			_.forEach(data, function(tt) {
-				console.table(tt);
-			});
+	.controller('mainController', ['$scope', '$timeout', function($scope, $timeout) {
+
+	}])
+	.controller('connectionsController', ['$scope', '$state', '$timeout', function($scope, $state, $timeout) {
+		$scope.$on('tabChange', function(event, data) {
+			$scope.currentTab = data;
 		});
+	}])
+	.controller('connectionsListController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		$scope.$emit('tabChange', $state.current.name);
 
+		$scope.editConnection = function(connection) {
+			$state.go('connections.edit', {connection: connection}, {});
+		};
 
-		// docker = docker.init();
+		DockerConn.findAll(function(connections, err) {
+			$scope.dockerConnections = connections;
+		});	
+	}])
+	.controller('connectionsNewController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		$scope.$emit('tabChange', $state.current.name);
 
-		// docker.listContainers({
-		// 	all: true
-		// }, function(err, containers) {
-		// 	console.log(containers);
-		// });	
+		$scope.newConnection = DockerConn.defaults;
 
-		// var docker = new Docker({
-		// 	host: '192.168.59.103',
-		// 	protocol: 'https',
-		// 	port: 2376,
-		// 	cert: fs.readFileSync('/Users/arkade/.boot2docker/certs/boot2docker-vm/cert.pem'),
-		// 	ca: fs.readFileSync('/Users/arkade/.boot2docker/certs/boot2docker-vm/ca.pem'),
-		// 	key: fs.readFileSync('/Users/arkade/.boot2docker/certs/boot2docker-vm/key.pem')
-		// });
+		$scope.saveConnection = function() {
+			var dockerConn = DockerConn.new($scope.newConnection);
 
-		// docker.listContainers({all: true}, function(err, containers) {
-		// 	console.log(containers);
-		// });		
-	}]);
+			dockerConn.save(function(connection) {
+				$state.go('connections.list');
+			});
+		};
+	}])
+	.controller('connectionsEditController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		$scope.newConnection = $state.params.connection;
+
+		if(!$scope.newConnection) return $state.go('connections.list');
+
+		$scope.saveConnection = function() {
+			//update here
+			$state.go('connections.list');
+		};
+	}])
+	.controller('dashboardController', function() {
+
+	});
 }());

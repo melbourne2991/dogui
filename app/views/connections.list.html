@@ -1,0 +1,23 @@
+<div class="panel panel-default connection-list">
+	<div class="panel-heading">
+		<h3 class="panel-title">Docker Connections</h3>
+	</div>
+	<div class="inner panel">
+	<table class="table">
+		<tr>
+			<th>Name</th>
+			<th>Host</th>
+			<th>Port</th>
+			<th>Protocol</th>
+		</tr>
+		<tr ng-repeat="connection in dockerConnections">
+			<td ng-bind="connection.name"></td>
+			<td ng-bind="connection.config.host"></td>
+			<td ng-bind="connection.config.port"></td>
+			<td ng-bind="connection.config.protocol"></td>
+			<td><span href="#" class="text-success link" ng-click="editConnection(connection)">Edit</span></td>
+			<td><span href="#" class="text-success link">Connect</span></td>
+		</tr>
+	</table>
+	</div>
+</div>
