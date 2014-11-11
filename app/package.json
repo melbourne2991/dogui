@@ -5,14 +5,27 @@
   "single-instance": true,
   "window": {
     "title": "Dockui",
-    "width": 650,
+    "width": 900,
     "height": 650,
-    "min_width": 650,
+    "min_width": 900,
     "min_height": 650,
     "toolbar": true
   },
   "chromium-args": "--child-clean-exit",
   "dependencies": {
-    "gulp": "~3.8.10"
+    "gulp": "~3.8.10",
+    "dockerode": "~2.0.4",
+    "diskdb": "~0.1.14",
+    "crypto": "0.0.3",
+    "lodash": "~2.4.1"
+  },
+  "devDependencies": {
+    "grunt": "~0.4.5",
+    "grunt-contrib-less": "~0.12.0",
+    "grunt-contrib-watch": "~0.6.1",
+    "grunt-contrib-jshint": "~0.10.0",
+    "grunt-contrib-cssmin": "~0.10.0",
+    "grunt-concat-sourcemap": "~0.4.3",
+    "grunt-contrib-concat": "~0.5.0"
   }
 }

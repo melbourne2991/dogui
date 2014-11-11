@@ -1,0 +1,58 @@
+@import "bootstrap/bootstrap.less";
+
+* {
+	box-sizing: border-box;
+}
+
+body,html {
+	height: 100%;
+}
+
+.container,.container-fluid {
+	padding: @grid-gutter-width;
+}
+
+#sidebar {
+	width: 200px;
+	height: 100%;
+	background: @brand-primary;
+	position: absolute;
+	left: 0;
+
+	.list-group {
+		a.list-group-item {
+			background-color: @brand-primary;
+			color: #fff;
+			border: 1px solid darken(@brand-primary, 10%);
+			border-left: 0;
+			border-right: 0;
+			padding-bottom: 20px;
+			padding-top: 20px;
+		}
+
+		a.list-group-item:hover {
+			background: darken(@brand-primary, 10%);
+		}
+
+		a.list-group-item:last-child {
+			border-bottom-right-radius: 0;
+			border-bottom-left-radius: 0;
+		}
+	}
+}
+
+#main {
+
+	padding-left: 200px;
+}
+
+@media (min-width: @screen-md-min) {
+ 	#sidebar {
+ 		width: 250px;
+ 	}
+
+ 	#main {
+		width: 100%;
+		padding-left: 250px;
+	}
+}

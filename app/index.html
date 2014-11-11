@@ -1,12 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
+	<link href="css/dist/app.css" rel="stylesheet">
+
+	<script>
+		var _ = require('lodash');
+	</script>
+
 	<script src="bower_components/jquery/dist/jquery.js"></script>
-	<script src="js/index.js"></script>
+	<script src="bower_components/angular/angular.js"></script>
+	<script src="bower_components/angular-bootstrap/ui-bootstrap.js"></script>
+	<script src="bower_components/ui-router/release/angular-ui-router.js"></script>
+
     <title>Dockui</title>
 </head>
-<body>
-	<h1>Dockui</h1>
-	<p>GUI for local docker</p>
+<body ng-app="Dogui">
+	<div id="sidebar">
+		<div class="list-group">
+		  <a href="#" class="list-group-item active">
+		    Cras justo odio
+		  </a>
+		  <a href="#" class="list-group-item">Dapibus ac facilisis in</a>
+		  <a href="#" class="list-group-item">Morbi leo risus</a>
+		  <a href="#" class="list-group-item">Porta ac consectetur ac</a>
+		  <a href="#" class="list-group-item">Vestibulum at eros</a>
+		</div>
+	</div>
+
+	<div id="main" ui-view="">
+
+	</div>
+	<script src="js/dist/app.js"></script>
+	<script src="http://0.0.0.0:35729/livereload.js"></script>
 </body>
 </html>
