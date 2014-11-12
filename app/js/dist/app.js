@@ -87,6 +87,11 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			$state.go('connections.edit', {connection: connection}, {});
 		};
 
+		$scope.connectToConnection = function(connection) {
+			// var docker = connection.init();
+			$state.go('connected.dashboard');
+		};
+
 		DockerConn.findAll(function(connections, err) {
 			$scope.dockerConnections = connections;
 		});	
@@ -99,7 +104,7 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 		$scope.saveConnection = function() {
 			var dockerConn = DockerConn.new($scope.newConnection);
 
-			dockerConn.save(function(connection) {
+			dockerConn.save(function(savedConnection) {
 				$state.go('connections.list');
 			});
 		};
@@ -109,9 +114,12 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 
 		if(!$scope.newConnection) return $state.go('connections.list');
 
-		$scope.saveConnection = function() {
-			//update here
-			$state.go('connections.list');
+		$scope.saveConnection = function(connection) {
+			console.log(connection);
+
+			connection.save(function(savedConnection) {
+				$state.go('connections.list');
+			});
 		};
 	}])
 	.controller('dashboardController', function() {
@@ -162,6 +170,7 @@ angular.module('Dogui.services', [])
 			opts.config = opts.config || {};
 
 			this.name = opts.name || 'New Connection';
+			this._id = opts._id || null;
 			this.config = {
 				host: opts.config.host || '192.168.59.103',
 				protocol: opts.config.protocol || 'https',
@@ -188,12 +197,23 @@ angular.module('Dogui.services', [])
 				});
 			},
 			save: function(cb) {
+				var data;
 				db.loadCollections(['dockerConnections']);
 
-				var data = db.dockerConnections.save({
-					name: this.name,
-					config: this.config
-				});
+				if(!this._id) {
+					data = db.dockerConnections.save({
+						name: this.name,
+						config: this.config
+					});
+
+					this._id = data._id;			
+				} else {
+					console.log('in else');
+					data = db.dockerConnections.update({_id: this._id}, {
+						name: this.name,
+						config: this.config
+					}, {upsert: true});	
+				}
 
 				return cb(data);
 			}
@@ -205,12 +225,17 @@ angular.module('Dogui.services', [])
 			},
 			find: function(id, cb) {
 				db.loadCollections(['dockerConnections']);
-				var data = db.dockerConnections.find({_id: id});
+				var data = new DockerConn(db.dockerConnections.find({_id: id}));
+
 				return cb(data);
 			},
 			findAll: function(cb) {
 				db.loadCollections(['dockerConnections']);
-				var data = db.dockerConnections.find();
+
+				var data = _.map(db.dockerConnections.find(), function(obj) {
+					return new DockerConn(obj);
+				});
+
 				return cb(data);
 			},
 			validate: function(connection) {
