@@ -75,6 +75,9 @@ angular.module('Dogui.services', [])
 				var data = db.dockerConnections.find();
 				return cb(data);
 			},
+			validate: function(connection) {
+				return new Validator();
+			},
 			defaults: {
 				name: 'New Connection',
 				config: {

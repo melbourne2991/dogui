@@ -72,7 +72,8 @@ angular.module('Dogui', [
 
 angular.module('Dogui.controllers', ['Dogui.services'])
 	.controller('mainController', ['$scope', '$timeout', function($scope, $timeout) {
-
+		var result = _.every([true, true, true], function(val) { return val; });
+		console.log(result);
 	}])
 	.controller('connectionsController', ['$scope', '$state', '$timeout', function($scope, $state, $timeout) {
 		$scope.$on('tabChange', function(event, data) {
@@ -211,6 +212,9 @@ angular.module('Dogui.services', [])
 				db.loadCollections(['dockerConnections']);
 				var data = db.dockerConnections.find();
 				return cb(data);
+			},
+			validate: function(connection) {
+				return new Validator();
 			},
 			defaults: {
 				name: 'New Connection',
