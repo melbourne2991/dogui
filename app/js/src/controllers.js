@@ -18,6 +18,11 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			$state.go('connections.edit', {connection: connection}, {});
 		};
 
+		$scope.connectToConnection = function(connection) {
+			// var docker = connection.init();
+			$state.go('connected.dashboard');
+		};
+
 		DockerConn.findAll(function(connections, err) {
 			$scope.dockerConnections = connections;
 		});	
@@ -30,7 +35,7 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 		$scope.saveConnection = function() {
 			var dockerConn = DockerConn.new($scope.newConnection);
 
-			dockerConn.save(function(connection) {
+			dockerConn.save(function(savedConnection) {
 				$state.go('connections.list');
 			});
 		};
@@ -40,9 +45,12 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 
 		if(!$scope.newConnection) return $state.go('connections.list');
 
-		$scope.saveConnection = function() {
-			//update here
-			$state.go('connections.list');
+		$scope.saveConnection = function(connection) {
+			console.log(connection);
+
+			connection.save(function(savedConnection) {
+				$state.go('connections.list');
+			});
 		};
 	}])
 	.controller('dashboardController', function() {

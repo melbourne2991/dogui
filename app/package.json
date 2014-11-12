@@ -17,7 +17,8 @@
     "dockerode": "~2.0.4",
     "diskdb": "~0.1.14",
     "crypto": "0.0.3",
-    "lodash": "~2.4.1"
+    "lodash": "~2.4.1",
+    "semantic-ui": "~0.19.3"
   },
   "devDependencies": {
     "grunt": "~0.4.5",
