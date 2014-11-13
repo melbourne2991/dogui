@@ -48,8 +48,6 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 		if(!$scope.newConnection) return $state.go('connections.list');
 
 		$scope.saveConnection = function(connection) {
-			console.log(connection);
-
 			connection.save(function(savedConnection) {
 				$state.go('connections.list');
 			});
@@ -58,5 +56,8 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 	.controller('dashboardController', ['$scope', '$state', function($scope, $state) {
 		var dockerInstance = $state.params.dockerInstance;
 		console.log(dockerInstance);
+		dockerInstance.listContainers({all: true}, function(err, containers) {
+			console.log(containers);
+		});
 	}]);	
 }());

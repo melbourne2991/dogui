@@ -43,7 +43,10 @@ angular.module('Dogui', [
 		.state('connected.dashboard', {
 			url: '',
 			templateUrl: './views/dashboard.html',
-			controller: 'dashboardController'
+			controller: 'dashboardController',
+			params: {
+				dockerInstance: {}
+			}
 		});
 
 	$urlRouterProvider.otherwise('/');

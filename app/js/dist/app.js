@@ -43,7 +43,10 @@ angular.module('Dogui', [
 		.state('connected.dashboard', {
 			url: '',
 			templateUrl: './views/dashboard.html',
-			controller: 'dashboardController'
+			controller: 'dashboardController',
+			params: {
+				dockerInstance: {}
+			}
 		});
 
 	$urlRouterProvider.otherwise('/');
@@ -116,8 +119,6 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 		if(!$scope.newConnection) return $state.go('connections.list');
 
 		$scope.saveConnection = function(connection) {
-			console.log(connection);
-
 			connection.save(function(savedConnection) {
 				$state.go('connections.list');
 			});
@@ -126,6 +127,9 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 	.controller('dashboardController', ['$scope', '$state', function($scope, $state) {
 		var dockerInstance = $state.params.dockerInstance;
 		console.log(dockerInstance);
+		dockerInstance.listContainers({all: true}, function(err, containers) {
+			console.log(containers);
+		});
 	}]);	
 }());
 
@@ -248,10 +252,10 @@ angular.module('Dogui.services', [])
 				config: {
 					host: '192.168.59.103',
 					protocol: 'https',
-					port: '',
-					cert: '',
-					ca: '',
-					key: ''
+					port: '2376',
+					cert: '/Users/arkade/.boot2docker/certs/boot2docker-vm/cert.pem',
+					ca: '/Users/arkade/.boot2docker/certs/boot2docker-vm/ca.pem',
+					key: '/Users/arkade/.boot2docker/certs/boot2docker-vm/key.pem'
 				}
 			}
 		};

@@ -100,10 +100,10 @@ angular.module('Dogui.services', [])
 				config: {
 					host: '192.168.59.103',
 					protocol: 'https',
-					port: '',
-					cert: '',
-					ca: '',
-					key: ''
+					port: '2376',
+					cert: '/Users/arkade/.boot2docker/certs/boot2docker-vm/cert.pem',
+					ca: '/Users/arkade/.boot2docker/certs/boot2docker-vm/ca.pem',
+					key: '/Users/arkade/.boot2docker/certs/boot2docker-vm/key.pem'
 				}
 			}
 		};

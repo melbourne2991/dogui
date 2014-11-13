@@ -26,12 +26,12 @@
 
 			<div class="form-group">
 			<label for="connectionPort">CA</label>
-			<input type="text" class="form-control" id="connectionPort" placeholder="CA">
+			<input type="text" class="form-control" id="connectionPort" placeholder="CA" ng-model="newConnection.config.ca">
 			</div>
 
 			<div class="form-group">
 			<label for="connectionPort">Key</label>
-			<input type="text" class="form-control" id="connectionPort" placeholder="Key">
+			<input type="text" class="form-control" id="connectionPort" placeholder="Key" ng-model="newConnection.config.key">
 			</div>
 
 			<button type="submit" class="btn btn-success" ng-click="saveConnection()">Save Connection</button>
