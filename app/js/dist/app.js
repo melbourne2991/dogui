@@ -88,8 +88,8 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 		};
 
 		$scope.connectToConnection = function(connection) {
-			// var docker = connection.init();
-			$state.go('connected.dashboard');
+			var dockerInstance = connection.init();
+			$state.go('connected.dashboard', {dockerInstance: dockerInstance});
 		};
 
 		DockerConn.findAll(function(connections, err) {
@@ -110,6 +110,7 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 		};
 	}])
 	.controller('connectionsEditController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		$scope.$emit('tabChange', $state.current.name);
 		$scope.newConnection = $state.params.connection;
 
 		if(!$scope.newConnection) return $state.go('connections.list');
@@ -122,9 +123,10 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			});
 		};
 	}])
-	.controller('dashboardController', function() {
-
-	});
+	.controller('dashboardController', ['$scope', '$state', function($scope, $state) {
+		var dockerInstance = $state.params.dockerInstance;
+		console.log(dockerInstance);
+	}]);	
 }());
 
 (function() {
