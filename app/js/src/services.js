@@ -29,25 +29,39 @@ angular.module('Dogui.services', [])
 				host: opts.config.host || '192.168.59.103',
 				protocol: opts.config.protocol || 'https',
 				port: opts.config.port || 2376,
-				cert: opts.config.cert || '/Users/arkade/.boot2docker/certs/boot2docker-vm/cert.pem',
-				ca: opts.config.ca || '/Users/arkade/.boot2docker/certs/boot2docker-vm/ca.pem',
-				key: opts.config.key || '/Users/arkade/.boot2docker/certs/boot2docker-vm/key.pem'
+				cert: opts.config.cert || null,
+				ca: opts.config.ca || null,
+				key: opts.config.key || null
 			};
 		};
 
 		DockerConn.prototype =	{
 			init: function() {
-				var cert = fs.readFileSync(this.config.cert, {encoding: 'utf8'}),
-					ca = fs.readFileSync(this.config.ca, {encoding: 'utf8'}),
-					key = fs.readFileSync(this.config.key, {encoding: 'utf8'});
+				var fileContents = {
+					cert: null,
+					ca: null,
+					key: null
+				};
+
+				_.forOwn({
+					cert: this.config.cert, 
+					ca: this.config.ca, 
+					key: this.config.key 
+				}, function(val, key) {
+					if(val && val.trim !== '') {
+						fileContents[key] = fs.readFileSync(val, {encoding: 'utf8'});
+					}
+				});
+
+				console.log(fileContents);
 
 				return new Dockerode({
 					host: this.config.host,
 					protocol: this.config.protocol,
 					port: this.config.port,
-					cert: cert,
-					ca: ca,
-					key: key
+					cert: fileContents.cert,
+					ca: fileContents.ca,
+					key: fileContents.key
 				});
 			},
 			save: function(cb) {
@@ -62,7 +76,6 @@ angular.module('Dogui.services', [])
 
 					this._id = data._id;			
 				} else {
-					console.log('in else');
 					data = db.dockerConnections.update({_id: this._id}, {
 						name: this.name,
 						config: this.config
@@ -105,11 +118,65 @@ angular.module('Dogui.services', [])
 					ca: '/Users/arkade/.boot2docker/certs/boot2docker-vm/ca.pem',
 					key: '/Users/arkade/.boot2docker/certs/boot2docker-vm/key.pem'
 				}
+			},
+			current: {
+				daemon: null,
+				connection: null
 			}
 		};
-	}]);
+	}])
+	.service('Dockerfile', ['db', function(db) {
+		var Dockerfile = function(opts) {
+			this._id = opts._id || null;
+			this.name = opts.name || null;
+			this.filePath = opts.filePath || genHash();
+		};
 
-	
+		Dockerfile.prototype = {
+			save: function(cb) {
+				db.loadCollections('dockerfiles');
+
+				if(!this._id) {
+					data = db.dockerfiles.save({
+						name: this.name,
+						filePath: this.filePath
+					});
+
+					this._id = data._id;			
+				} else {
+					data = db.dockerfiles.update({_id: this._id}, {
+						name: this.name,
+						filePath: this.filePath
+					}, {upsert: true});	
+				}	
+			},
+			loadContent: function(cb) {
+				fs.readFileSync(this.filePath, {encoding: 'utf8'}, function(err, data) {
+					return cb(err, data);
+				});
+			}
+		};
+
+		return {
+			new: function() {
+				return new Dockerfile();
+			},
+			find: function(id, cb) {
+				db.loadCollections('dockerfiles');
+				var data = new Dockerfile(db.dockerfiles.find({_id: id}));
+
+				return cb(data);
+			},
+			findAll: function(cb) {
+				dv.loadCollections('dockerfiles');
+				var data = _.map(db.dockerfiles.find(), function(obj) {
+					return new Dockerfile(obj);
+				});
+
+				return cb(data);
+			}
+		}
+	}]);
 }());
 
 

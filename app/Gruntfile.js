@@ -9,13 +9,13 @@ module.exports = function(grunt) {
 		less: {
 			development: {
 				files: {
-					'css/dist/app.css': 'css/src/app.less'
+					'css/style.css': 'css/style.less'
 				}
 			}
 		},
 		watch: {
 			css: {
-				files: ['css/src/**/*.less'],
+				files: ['css/style.less'],
 				tasks: ['less']
 			},
 			javascripts: {
@@ -23,7 +23,7 @@ module.exports = function(grunt) {
 				tasks: ['jshint', 'concat']
 			},
 			dests: {
-				files: ['js/dist/**/*.js', 'css/dist/**/*.css', 'views/**/*.html', 'index.html'],
+				files: ['js/dist/**/*.js', 'css/dist/**/*.css', 'css/style.css', 'views/**/*.html', 'index.html'],
 				options: {
 					livereload: true
 				}

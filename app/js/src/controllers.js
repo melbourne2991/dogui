@@ -4,8 +4,7 @@
 
 angular.module('Dogui.controllers', ['Dogui.services'])
 	.controller('mainController', ['$scope', '$timeout', function($scope, $timeout) {
-		var result = _.every([true, true, true], function(val) { return val; });
-		console.log(result);
+
 	}])
 	.controller('connectionsController', ['$scope', '$state', '$timeout', function($scope, $state, $timeout) {
 		$scope.$on('tabChange', function(event, data) {
@@ -20,8 +19,10 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 		};
 
 		$scope.connectToConnection = function(connection) {
-			var dockerInstance = connection.init();
-			$state.go('connected.dashboard', {dockerInstance: dockerInstance});
+			DockerConn.current.connection = connection;
+			DockerConn.current.daemon = connection.init();
+
+			$state.go('connected.containers');
 		};
 
 		DockerConn.findAll(function(connections, err) {
@@ -53,11 +54,75 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			});
 		};
 	}])
-	.controller('dashboardController', ['$scope', '$state', function($scope, $state) {
-		var dockerInstance = $state.params.dockerInstance;
-		console.log(dockerInstance);
-		dockerInstance.listContainers({all: true}, function(err, containers) {
-			console.log(containers);
+	.controller('connectedController', ['$scope', '$state', function($scope, $state) {
+		$scope.$on('connectedTo', function(event, data) {
+			$scope.connection = data;
 		});
-	}]);	
+	}])
+	.controller('containersController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+
+		$scope.$emit('connectedTo', DockerConn.current.connection);
+
+		var dockerDaemon = 	DockerConn.current.daemon;
+
+		dockerDaemon.listContainers({all: true}, function(err, containerListings) {
+			$scope.inactiveContainers = _.map(containerListings, function(containerListing, i) {
+				return {
+					meta: containerListing,
+					containerInstance: dockerDaemon.getContainer(containerListing.Id)						
+				};
+			});
+
+			$scope.$digest();
+		});
+
+		$scope.removeContainer = function(container) {
+			var containerInstance = container.containerInstance;
+			containerInstance.remove(function(err, data) {
+				if(!err) {
+					// var inactiveContainerResult = _.find($scope.inactiveContainers, function(obj, i) {
+					// 	if(obj.Id === container.Id) {
+					// 		return true;
+					// 	}
+					// });
+				}
+			});
+		};
+
+		$scope.startContainer = function(container) {
+			var containerInstance = container.containerInstance;
+
+			containerInstance.start(function(err, data) {
+				console.log(err);
+				console.log(data);
+			});
+		};
+	}])
+	.controller('imagesController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+
+		var dockerDaemon = DockerConn.current.daemon;
+
+		dockerDaemon.listImages(function(err, data) {
+			console.log(data);
+			$scope.images = data;
+			$scope.$digest();
+		});
+	}])
+	.controller('dockerfilesController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+	}])
+	.controller('dockerfilesNewController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+
+		$scope.dockerfile = {
+			name: '',
+			body: ''
+		};
+
+		$scope.saveDockerfile = function() {
+			
+		};
+	}]);
 }());

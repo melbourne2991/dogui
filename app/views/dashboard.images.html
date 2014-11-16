@@ -1,0 +1,31 @@
+<div class="ui grid">
+	<div class="row">
+		<div class="column">
+		<h3 class="ui top attached header">Images</h3>
+
+		<table class="ui table bottom attached segment">
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Created</th>
+					<th>Repository</th>
+					<th>Tag</th>
+					<th>Virtual Size</th>
+				</tr>
+				</thead>
+				<tbody>
+				<tr ng-repeat="image in images">
+					<td>{{ image.Id | shortImageId }}</td>
+					<td>{{ image.Created | dockerDate }}</td>
+					<td>{{ image.RepoTags[0] | repoTags: 'repo' }}</td>
+					<td>{{ image.RepoTags[0] | repoTags: 'tag' }}</td>
+					<td>{{ image.VirtualSize | toGigs}}</td>
+				</tr>
+				<tr ng-if="!images.length">
+					<td colspan="6"><span class="text-primary link" ui-sref="images.new"> No images - add your first one</span></td>
+				</tr>
+			</tbody>
+		</table>
+		</div>
+	</div>
+</div>

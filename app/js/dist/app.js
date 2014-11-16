@@ -4,11 +4,12 @@
 
 angular.module('Dogui', [
 	'ngAnimate',
-	'ui.bootstrap',
 	'ui.router',	
+	'ui.ace',
 	'Dogui.controllers',
 	'Dogui.directives',
-	'Dogui.services'
+	'Dogui.services',
+	'Dogui.filters'
 ]).config(['$stateProvider', '$urlRouterProvider', function($stateProvider, $urlRouterProvider) {
 	$stateProvider
 		.state('connections', {
@@ -37,16 +38,33 @@ angular.module('Dogui', [
 		})
 		.state('connected', {
 			url: '/dashboard',
-			templateUrl: './views/main.html',
+			templateUrl: './views/dashboard.html',
+			controller: 'connectedController',
 			abstract: true
 		})
-		.state('connected.dashboard', {
+		.state('connected.containers', {
 			url: '',
-			templateUrl: './views/dashboard.html',
-			controller: 'dashboardController',
+			templateUrl: './views/dashboard.containers.html',
+			controller: 'containersController',
 			params: {
-				dockerInstance: {}
+				dockerDaemon: {},
+				connection: {}
 			}
+		})
+		.state('connected.images', {
+			url: '/dashboard/images',
+			templateUrl: './views/dashboard.images.html',
+			controller: 'imagesController'
+		})
+		.state('connected.dockerfiles', {
+			url: '/dashboard/dockerfiles',
+			templateUrl: './views/dashboard.dockerfiles.html',
+			controller: 'dockerfilesController'
+		})
+		.state('connected.dockerfilesNew', {
+			url: '/dashboard/dockerfiles/new',
+			templateUrl: './views/dashboard.dockerfiles.new.html',
+			controller: 'dockerfilesNewController'
 		});
 
 	$urlRouterProvider.otherwise('/');
@@ -75,8 +93,7 @@ angular.module('Dogui', [
 
 angular.module('Dogui.controllers', ['Dogui.services'])
 	.controller('mainController', ['$scope', '$timeout', function($scope, $timeout) {
-		var result = _.every([true, true, true], function(val) { return val; });
-		console.log(result);
+
 	}])
 	.controller('connectionsController', ['$scope', '$state', '$timeout', function($scope, $state, $timeout) {
 		$scope.$on('tabChange', function(event, data) {
@@ -91,8 +108,10 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 		};
 
 		$scope.connectToConnection = function(connection) {
-			var dockerInstance = connection.init();
-			$state.go('connected.dashboard', {dockerInstance: dockerInstance});
+			DockerConn.current.connection = connection;
+			DockerConn.current.daemon = connection.init();
+
+			$state.go('connected.containers');
 		};
 
 		DockerConn.findAll(function(connections, err) {
@@ -124,13 +143,77 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			});
 		};
 	}])
-	.controller('dashboardController', ['$scope', '$state', function($scope, $state) {
-		var dockerInstance = $state.params.dockerInstance;
-		console.log(dockerInstance);
-		dockerInstance.listContainers({all: true}, function(err, containers) {
-			console.log(containers);
+	.controller('connectedController', ['$scope', '$state', function($scope, $state) {
+		$scope.$on('connectedTo', function(event, data) {
+			$scope.connection = data;
 		});
-	}]);	
+	}])
+	.controller('containersController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+
+		$scope.$emit('connectedTo', DockerConn.current.connection);
+
+		var dockerDaemon = 	DockerConn.current.daemon;
+
+		dockerDaemon.listContainers({all: true}, function(err, containerListings) {
+			$scope.inactiveContainers = _.map(containerListings, function(containerListing, i) {
+				return {
+					meta: containerListing,
+					containerInstance: dockerDaemon.getContainer(containerListing.Id)						
+				};
+			});
+
+			$scope.$digest();
+		});
+
+		$scope.removeContainer = function(container) {
+			var containerInstance = container.containerInstance;
+			containerInstance.remove(function(err, data) {
+				if(!err) {
+					// var inactiveContainerResult = _.find($scope.inactiveContainers, function(obj, i) {
+					// 	if(obj.Id === container.Id) {
+					// 		return true;
+					// 	}
+					// });
+				}
+			});
+		};
+
+		$scope.startContainer = function(container) {
+			var containerInstance = container.containerInstance;
+
+			containerInstance.start(function(err, data) {
+				console.log(err);
+				console.log(data);
+			});
+		};
+	}])
+	.controller('imagesController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+
+		var dockerDaemon = DockerConn.current.daemon;
+
+		dockerDaemon.listImages(function(err, data) {
+			console.log(data);
+			$scope.images = data;
+			$scope.$digest();
+		});
+	}])
+	.controller('dockerfilesController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+	}])
+	.controller('dockerfilesNewController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+
+		$scope.dockerfile = {
+			name: '',
+			body: ''
+		};
+
+		$scope.saveDockerfile = function() {
+			console.log($scope.dockerfile);
+		};
+	}]);
 }());
 
 (function() {
@@ -150,6 +233,28 @@ angular.module('Dogui.directives', [])
 
 }());
 
+angular.module('Dogui.filters', [])
+	.filter('dockerDate', function() {
+		return function(input) {
+			return input;
+		};
+	})
+	.filter('repoTags', function() {
+		return function(input, repoOrTag) {
+			var split = input.toString().split(':');
+			return repoOrTag === 'tag' ? split[1] : split[0];
+		};
+	})
+	.filter('shortImageId', function() {
+		return function(input) {
+			return input.toString().slice(0, 12);
+		};
+	})
+	.filter('toGigs', function() {
+		return function(input) {
+			return Math.round((parseInt(input, 10) / 1000000000) * 1000)/1000 + ' GB';
+		};
+	});
 (function() {
 
 'use strict';
@@ -181,25 +286,39 @@ angular.module('Dogui.services', [])
 				host: opts.config.host || '192.168.59.103',
 				protocol: opts.config.protocol || 'https',
 				port: opts.config.port || 2376,
-				cert: opts.config.cert || '/Users/arkade/.boot2docker/certs/boot2docker-vm/cert.pem',
-				ca: opts.config.ca || '/Users/arkade/.boot2docker/certs/boot2docker-vm/ca.pem',
-				key: opts.config.key || '/Users/arkade/.boot2docker/certs/boot2docker-vm/key.pem'
+				cert: opts.config.cert || null,
+				ca: opts.config.ca || null,
+				key: opts.config.key || null
 			};
 		};
 
 		DockerConn.prototype =	{
 			init: function() {
-				var cert = fs.readFileSync(this.config.cert, {encoding: 'utf8'}),
-					ca = fs.readFileSync(this.config.ca, {encoding: 'utf8'}),
-					key = fs.readFileSync(this.config.key, {encoding: 'utf8'});
+				var fileContents = {
+					cert: null,
+					ca: null,
+					key: null
+				};
+
+				_.forOwn({
+					cert: this.config.cert, 
+					ca: this.config.ca, 
+					key: this.config.key 
+				}, function(val, key) {
+					if(val && val.trim !== '') {
+						fileContents[key] = fs.readFileSync(val, {encoding: 'utf8'});
+					}
+				});
+
+				console.log(fileContents);
 
 				return new Dockerode({
 					host: this.config.host,
 					protocol: this.config.protocol,
 					port: this.config.port,
-					cert: cert,
-					ca: ca,
-					key: key
+					cert: fileContents.cert,
+					ca: fileContents.ca,
+					key: fileContents.key
 				});
 			},
 			save: function(cb) {
@@ -214,7 +333,6 @@ angular.module('Dogui.services', [])
 
 					this._id = data._id;			
 				} else {
-					console.log('in else');
 					data = db.dockerConnections.update({_id: this._id}, {
 						name: this.name,
 						config: this.config
@@ -257,11 +375,20 @@ angular.module('Dogui.services', [])
 					ca: '/Users/arkade/.boot2docker/certs/boot2docker-vm/ca.pem',
 					key: '/Users/arkade/.boot2docker/certs/boot2docker-vm/key.pem'
 				}
+			},
+			current: {
+				daemon: null,
+				connection: null
 			}
 		};
+	}])
+	.service('Dockerfile', ['db', function(db) {
+		var Dockerfile = function() {
+			this.id = null;
+			this.name = null;
+			this.body = null;
+		};
 	}]);
-
-	
 }());
 
 

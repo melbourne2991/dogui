@@ -4,11 +4,12 @@
 
 angular.module('Dogui', [
 	'ngAnimate',
-	'ui.bootstrap',
 	'ui.router',	
+	'ui.ace',
 	'Dogui.controllers',
 	'Dogui.directives',
-	'Dogui.services'
+	'Dogui.services',
+	'Dogui.filters'
 ]).config(['$stateProvider', '$urlRouterProvider', function($stateProvider, $urlRouterProvider) {
 	$stateProvider
 		.state('connections', {
@@ -37,16 +38,33 @@ angular.module('Dogui', [
 		})
 		.state('connected', {
 			url: '/dashboard',
-			templateUrl: './views/main.html',
+			templateUrl: './views/dashboard.html',
+			controller: 'connectedController',
 			abstract: true
 		})
-		.state('connected.dashboard', {
+		.state('connected.containers', {
 			url: '',
-			templateUrl: './views/dashboard.html',
-			controller: 'dashboardController',
+			templateUrl: './views/dashboard.containers.html',
+			controller: 'containersController',
 			params: {
-				dockerInstance: {}
+				dockerDaemon: {},
+				connection: {}
 			}
+		})
+		.state('connected.images', {
+			url: '/dashboard/images',
+			templateUrl: './views/dashboard.images.html',
+			controller: 'imagesController'
+		})
+		.state('connected.dockerfiles', {
+			url: '/dashboard/dockerfiles',
+			templateUrl: './views/dashboard.dockerfiles.html',
+			controller: 'dockerfilesController'
+		})
+		.state('connected.dockerfilesNew', {
+			url: '/dashboard/dockerfiles/new',
+			templateUrl: './views/dashboard.dockerfiles.new.html',
+			controller: 'dockerfilesNewController'
 		});
 
 	$urlRouterProvider.otherwise('/');

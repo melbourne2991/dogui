@@ -1,26 +1,28 @@
-<div class="panel panel-default connection-list">
-	<div class="panel-heading">
-		<h3 class="panel-title">Docker Connections</h3>
-	</div>
-	<div class="inner panel">
-	<table class="table">
+<h3 class="ui top attached header inverted">Docker Connections</h3>
+
+<table class="ui table bottom attached segment">
+	<thead>
 		<tr>
 			<th>Name</th>
 			<th>Host</th>
 			<th>Port</th>
 			<th>Protocol</th>
+			<th></th>
+			<th></th>
 		</tr>
+		</thead>
+		<tbody>
 		<tr ng-repeat="connection in dockerConnections">
 			<td ng-bind="connection.name"></td>
 			<td ng-bind="connection.config.host"></td>
 			<td ng-bind="connection.config.port"></td>
 			<td ng-bind="connection.config.protocol"></td>
-			<td><span href="#" class="text-success link" ng-click="editConnection(connection)">Edit</span></td>
-			<td><span href="#" class="text-success link" ng-click="connectToConnection(connection)">Connect</span></td>
+			<td><i class="large edit sign icon" ng-click="editConnection(connection)"></i></td>
+			<td><span ng-click="connectToConnection(connection)" class="ui tiny button">Connect</span></td>
 		</tr>
 		<tr ng-if="!dockerConnections.length">
 			<td colspan="4"><span class="text-primary link" ui-sref="connections.new"> No connections - add your first one</span></td>
 		</tr>
-	</table>
-	</div>
-</div>
+	</tbody>
+</table>
+

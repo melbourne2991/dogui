@@ -1,0 +1,31 @@
+<div class="ui grid">
+	<div class="row">
+		<div class="column">
+			<form role="form" class="ui form attached segment">
+				<div class="field">
+					<div class="ui input">
+					<label for="dockerfileName">Name</label>
+					<input type="text" class="form-control" id="dockerfileName" placeholder="Dockerfile Name" ng-model="dockerfile.name">
+					</div>
+				</div>
+
+				<div class="field">
+					<div ui-ace ng-model="dockerfile.body"></div>
+				</div>
+			</form>
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="left floated three wide column">
+			<div class="positive ui button fluid" ng-click="saveDockerfile()">Save</div>
+		</div>
+
+		<div class="right floated three wide column">
+			<div class="negative ui button fluid" ui-sref="connected.dockerfiles">Cancel</div>
+		</div>
+	</div>
+</div>
+
+
+
