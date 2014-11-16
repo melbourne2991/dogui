@@ -202,16 +202,13 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 	.controller('dockerfilesController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
 		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
 	}])
-	.controller('dockerfilesNewController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+	.controller('dockerfilesNewController', ['$scope', '$state', 'DockerConn', 'Dockerfile', function($scope, $state, DockerConn, Dockerfile) {
 		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
 
-		$scope.dockerfile = {
-			name: '',
-			body: ''
-		};
+		$scope.dockerfile = Dockerfile.new();
 
 		$scope.saveDockerfile = function() {
-			console.log($scope.dockerfile);
+			$scope.dockerfile.save();
 		};
 	}]);
 }());
@@ -383,10 +380,68 @@ angular.module('Dogui.services', [])
 		};
 	}])
 	.service('Dockerfile', ['db', function(db) {
-		var Dockerfile = function() {
-			this.id = null;
-			this.name = null;
-			this.body = null;
+		var Dockerfile = function(opts) {
+			opts = opts || {};
+			this._id = opts._id || null;
+			this.name = opts.name || null;
+			this.filePath = opts.filePath || genHash();
+		};
+
+		Dockerfile.prototype = {
+			save: function(cb) {
+				var data;
+
+				db.loadCollections(['dockerfiles']);
+
+				if(!this._id) {
+					fs.writeFile('./dockerfiles/' + this.filePath,  this.body, function(err, data) {
+						console.log(err);
+						console.log(data);
+					});
+
+					data = db.dockerfiles.save({
+						name: this.name,
+						filePath: this.filePath
+					});
+
+					this._id = data._id;			
+				} else {
+					fs.writeFile(this.filePath,  this.body, function(err, data) {
+						console.log(err);
+						console.log(data);
+					});
+
+					data = db.dockerfiles.update({_id: this._id}, {
+						name: this.name,
+						filePath: this.filePath
+					}, {upsert: true});	
+				}	
+			},
+			loadContent: function(cb) {
+				fs.readFile(this.filePath, {encoding: 'utf8'}, function(err, data) {
+					return cb(err, data);
+				});
+			}
+		};
+
+		return {
+			new: function() {
+				return new Dockerfile();
+			},
+			find: function(id, cb) {
+				db.loadCollections(['dockerfiles']);
+				var data = new Dockerfile(db.dockerfiles.find({_id: id}));
+
+				return cb(data);
+			},
+			findAll: function(cb) {
+				dv.loadCollections(['dockerfiles']);
+				var data = _.map(db.dockerfiles.find(), function(obj) {
+					return new Dockerfile(obj);
+				});
+
+				return cb(data);
+			}
 		};
 	}]);
 }());

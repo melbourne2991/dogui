@@ -127,6 +127,7 @@ angular.module('Dogui.services', [])
 	}])
 	.service('Dockerfile', ['db', function(db) {
 		var Dockerfile = function(opts) {
+			opts = opts || {};
 			this._id = opts._id || null;
 			this.name = opts.name || null;
 			this.filePath = opts.filePath || genHash();
@@ -134,9 +135,16 @@ angular.module('Dogui.services', [])
 
 		Dockerfile.prototype = {
 			save: function(cb) {
-				db.loadCollections('dockerfiles');
+				var data;
+
+				db.loadCollections(['dockerfiles']);
 
 				if(!this._id) {
+					fs.writeFile('./dockerfiles/' + this.filePath,  this.body, function(err, data) {
+						console.log(err);
+						console.log(data);
+					});
+
 					data = db.dockerfiles.save({
 						name: this.name,
 						filePath: this.filePath
@@ -144,6 +152,11 @@ angular.module('Dogui.services', [])
 
 					this._id = data._id;			
 				} else {
+					fs.writeFile(this.filePath,  this.body, function(err, data) {
+						console.log(err);
+						console.log(data);
+					});
+
 					data = db.dockerfiles.update({_id: this._id}, {
 						name: this.name,
 						filePath: this.filePath
@@ -151,7 +164,7 @@ angular.module('Dogui.services', [])
 				}	
 			},
 			loadContent: function(cb) {
-				fs.readFileSync(this.filePath, {encoding: 'utf8'}, function(err, data) {
+				fs.readFile(this.filePath, {encoding: 'utf8'}, function(err, data) {
 					return cb(err, data);
 				});
 			}
@@ -162,20 +175,20 @@ angular.module('Dogui.services', [])
 				return new Dockerfile();
 			},
 			find: function(id, cb) {
-				db.loadCollections('dockerfiles');
+				db.loadCollections(['dockerfiles']);
 				var data = new Dockerfile(db.dockerfiles.find({_id: id}));
 
 				return cb(data);
 			},
 			findAll: function(cb) {
-				dv.loadCollections('dockerfiles');
+				dv.loadCollections(['dockerfiles']);
 				var data = _.map(db.dockerfiles.find(), function(obj) {
 					return new Dockerfile(obj);
 				});
 
 				return cb(data);
 			}
-		}
+		};
 	}]);
 }());
 

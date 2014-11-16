@@ -113,16 +113,13 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 	.controller('dockerfilesController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
 		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
 	}])
-	.controller('dockerfilesNewController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+	.controller('dockerfilesNewController', ['$scope', '$state', 'DockerConn', 'Dockerfile', function($scope, $state, DockerConn, Dockerfile) {
 		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
 
-		$scope.dockerfile = {
-			name: '',
-			body: ''
-		};
+		$scope.dockerfile = Dockerfile.new();
 
 		$scope.saveDockerfile = function() {
-			
+			$scope.dockerfile.save();
 		};
 	}]);
 }());
