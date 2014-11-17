@@ -4,6 +4,7 @@ module.exports = function(grunt) {
 	grunt.loadNpmTasks('grunt-contrib-watch');
 	grunt.loadNpmTasks('grunt-contrib-jshint');
 	grunt.loadNpmTasks('grunt-contrib-concat');
+	grunt.loadNpmTasks('grunt-karma');
 
 	grunt.initConfig({
 		less: {
@@ -43,6 +44,11 @@ module.exports = function(grunt) {
 			dist: {
 				src: ['js/src/**/*.js'],
 				dest: 'js/dist/app.js'
+			}
+		},
+		karma: {
+			unit: {
+				configFile: 'karma.conf.js'
 			}
 		}
 	});
