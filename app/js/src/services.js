@@ -7,6 +7,7 @@ var Dockerode = require('dockerode'),
 	crypto = require('crypto'),
 	diskDb = require('diskdb'),
 	path = require('path'),
+	_ = require('lodash'),
 	genHash = function() {
 		return crypto.randomBytes(20).toString('hex');
 	};
@@ -52,8 +53,6 @@ angular.module('Dogui.services', [])
 						fileContents[key] = fs.readFileSync(val, {encoding: 'utf8'});
 					}
 				});
-
-				console.log(fileContents);
 
 				return new Dockerode({
 					host: this.config.host,

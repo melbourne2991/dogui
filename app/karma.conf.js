@@ -1,3 +1,6 @@
+process.env.NODEWEBKIT_BIN = '/Users/Will/DEv/dogui/resources/node-webkit/MacOS64/node-webkit.app/Contents/MacOS/node-webkit';
+process.env.NODE_PATH = '/Users/Will/DEv/dogui/app/node_modules';
+process.env.APP_PATH = '/Users/Will/DEv/dogui/app';
 // Karma configuration
 // Generated on Mon Nov 17 2014 15:52:16 GMT+1100 (EST)
 
@@ -10,12 +13,17 @@ module.exports = function(config) {
 
     // frameworks to use
     // available frameworks: https://npmjs.org/browse/keyword/karma-adapter
-    frameworks: ['mocha', 'sinon-chai'],
+    frameworks: ['jasmine'],
 
 
     // list of files / patterns to load in the browser
-    files: [
-      'bower_components/angular-mocks/angular-mocks.js',
+    files: [ 
+      'bower_components/jquery/dist/jquery.js',      
+      'bower_components/angular/angular.js',      
+      'bower_components/angular-animate/angular-animate.js',
+      'bower_components/angular-mocks/angular-mocks.js',      
+      'bower_components/ui-router/release/angular-ui-router.js',
+      'bower_components/ui-ace-git/src/ui-ace.js',
       'js/src/**/*.js',
       'js/test/**/*.js'
     ],
@@ -28,8 +36,7 @@ module.exports = function(config) {
 
     // preprocess matching files before serving them to the browser
     // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
-    preprocessors: {
-    },
+    preprocessors: {},
 
 
     // test results reporter to use
@@ -57,11 +64,11 @@ module.exports = function(config) {
 
     // start these browsers
     // available browser launchers: https://npmjs.org/browse/keyword/karma-launcher
-    browsers: ['PhantomJS'],
+    browsers: ['NodeWebkit'],
 
 
     // Continuous Integration mode
     // if true, Karma captures browsers, runs the tests and exits
-    singleRun: false
+    singleRun: true
   });
 };

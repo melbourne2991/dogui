@@ -54,4 +54,5 @@ module.exports = function(grunt) {
 	});
 
 	grunt.registerTask('compile', ['less', 'jshint', 'concat']);
+	grunt.registerTask('test', ['karma']);
 };
