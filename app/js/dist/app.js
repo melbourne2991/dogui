@@ -274,10 +274,10 @@ angular.module('Dogui.directives', [])
 					modalConfirmText = scope.modalConfirmText || 'Okay',
 					modalCancelText = scope.modalCancelText || 'Cancel';
 
-				// primaryModal.find('.header').text(modalTitle);
-				// primaryModal.find('.content').text(modalBody);
-				// primaryModal.find('.approve').text(modalConfirmText);
-				// primaryModal.find('.deny').text(modalCancelText);
+				primaryModal.find('.header').text(modalTitle);
+				primaryModal.find('.content').text(modalBody);
+				primaryModal.find('.approve').text(modalConfirmText);
+				primaryModal.find('.deny').text(modalCancelText);
 
 				primaryModal.modal('setting', {
 					onApprove: function(e) {
