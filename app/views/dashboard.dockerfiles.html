@@ -7,7 +7,29 @@
 
 	<div class="row">
 		<div class="column">
-
+			<table class="ui table bottom attached segment">
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>Created</th>
+						<th>Last Updated</th>
+						<th></th>
+						<th></th>
+					</tr>
+					</thead>
+					<tbody>
+					<tr ng-repeat="dockerfile in dockerfiles">
+						<td ng-bind="dockerfile.name"></td>
+						<td ng-bind="dockerfile.created"></td>
+						<td ng-bind="dockerfile.updated"></td>
+						<td><i class="large edit sign icon href" ng-click="editDockerfile(dockerfile)"></i></td>
+						<td><i class="large remove red icon href" modaler confirm-fn="confirm()"></i></td>
+					</tr>
+					<tr ng-if="!dockerfiles.length">
+						<td colspan="6"><span class="text-primary link" ui-sref="connections.new"> No dockerfiles - add your first one</span></td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 	</div>
 </div>

@@ -48,8 +48,8 @@
 				<tr ng-repeat="container in inactiveContainers">
 					<td ng-bind="container.meta.Names[0]"></td>
 					<td ng-bind="container.meta.Image"></td>
-					<td><i class="green active play icon" ng-click="startContainer(container)"></i></td>
-					<td><i class="red remove icon" ng-click="removeContainer(container)"></i></td>
+					<td><i class="large green active play icon href" ng-click="startContainer(container)"></i></td>
+					<td><i class="large red remove icon href" ng-click="removeContainer(container)"></i></td>
 				</tr>
 				<tr ng-if="!inactiveContainers.length">
 					<td colspan="6"><span class="text-primary link" ui-sref="connections.new"> No running containers - add your first one</span></td>

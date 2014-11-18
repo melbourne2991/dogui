@@ -409,14 +409,3 @@
     User Variable Overrides
 *******************************/
 
-.ui.message.with-right-button:before,
-.ui.message.with-right-button:after {
-  content: " ";
-  display: table;
-}
-.ui.message.with-right-button:after {
-  clear: both;
-}
-.ui.message.with-right-button .button {
-  float: right;
-}

@@ -17,7 +17,7 @@
 			<td ng-bind="connection.config.host"></td>
 			<td ng-bind="connection.config.port"></td>
 			<td ng-bind="connection.config.protocol"></td>
-			<td><i class="large edit sign icon" ng-click="editConnection(connection)"></i></td>
+			<td><i class="large edit sign icon link" ng-click="editConnection(connection)"></i></td>
 			<td><span ng-click="connectToConnection(connection)" class="ui tiny button">Connect</span></td>
 		</tr>
 		<tr ng-if="!dockerConnections.length">

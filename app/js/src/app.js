@@ -65,6 +65,14 @@ angular.module('Dogui', [
 			url: '/dashboard/dockerfiles/new',
 			templateUrl: './views/dashboard.dockerfiles.new.html',
 			controller: 'dockerfilesNewController'
+		})
+		.state('connected.dockerfilesEdit', {
+			url: '/dashboard/dockerfiles/edit',
+			templateUrl: './views/dashboard.dockerfiles.new.html',
+			controller: 'dockerfilesEditController',
+			params: {
+				dockerfile: {}
+			}
 		});
 
 	$urlRouterProvider.otherwise('/');

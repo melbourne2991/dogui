@@ -2126,3 +2126,6 @@ i.icon.weixin:before {
          Site Overrides
 *******************************/
 
+.icon.href {
+  cursor: pointer;
+}

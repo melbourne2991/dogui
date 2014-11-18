@@ -9,6 +9,7 @@
 	</script>
 
 	<script src="bower_components/jquery/dist/jquery.js"></script>
+	<script src="Semantic-UI/dist/semantic.js"></script>
 	<script src="bower_components/ace-builds-git/src-min-noconflict/ace.js"></script>
 	<script src="bower_components/angular/angular.js"></script>
 	<script src="bower_components/angular-animate/angular-animate.js"></script>
@@ -21,6 +22,25 @@
 	<div id="canvas">
 		<div ui-view=""></div>
 	</div>
+
+	<div class="ui modal" id="primaryModal">
+		<i class="close icon"></i>
+		<div class="header">
+		Header
+		</div>
+		<div class="content">
+			Some content to the left, usually an image or icon
+		</div>
+		<div class="actions">
+			<div class="ui button deny">
+			Cancel
+			</div>
+			<div class="ui button approve">
+			Okay
+			</div>
+		</div>
+	</div>
+
 	<script src="js/dist/app.js"></script>
 	<script src="http://0.0.0.0:35729/livereload.js"></script>
 </body>

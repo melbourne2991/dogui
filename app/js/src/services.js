@@ -146,6 +146,8 @@ angular.module('Dogui.services', [])
 
 					data = db.dockerfiles.save({
 						name: this.name,
+						created: new Date(),
+						updated: new Date(),
 						filePath: this.filePath
 					});
 
@@ -158,14 +160,16 @@ angular.module('Dogui.services', [])
 
 					data = db.dockerfiles.update({_id: this._id}, {
 						name: this.name,
+						updated: new Date(),
 						filePath: this.filePath
 					}, {upsert: true});	
 				}	
 			},
 			loadContent: function(cb) {
-				fs.readFile(this.filePath, {encoding: 'utf8'}, function(err, data) {
+				fs.readFile('./dockerfiles/' + this.filePath, {encoding: 'utf8'}, function(err, data) {
+					this.body = data;
 					return cb(err, data);
-				});
+				}.bind(this));
 			}
 		};
 
@@ -180,7 +184,7 @@ angular.module('Dogui.services', [])
 				return cb(data);
 			},
 			findAll: function(cb) {
-				dv.loadCollections(['dockerfiles']);
+				db.loadCollections(['dockerfiles']);
 				var data = _.map(db.dockerfiles.find(), function(obj) {
 					return new Dockerfile(obj);
 				});

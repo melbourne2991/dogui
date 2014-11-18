@@ -110,8 +110,20 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			$scope.$digest();
 		});
 	}])
-	.controller('dockerfilesController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+	.controller('dockerfilesController', ['$scope', '$state', 'DockerConn', 'Dockerfile', function($scope, $state, DockerConn, Dockerfile) {
 		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+
+		Dockerfile.findAll(function(data) {
+			$scope.dockerfiles = data;
+		});
+
+		$scope.confirm = function() {
+			console.log('woot woot confirmed');
+		};
+
+		$scope.editDockerfile = function(dockerfile) {
+			$state.go('connected.dockerfilesEdit', {dockerfile: dockerfile});
+		};
 	}])
 	.controller('dockerfilesNewController', ['$scope', '$state', 'DockerConn', 'Dockerfile', function($scope, $state, DockerConn, Dockerfile) {
 		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
@@ -120,6 +132,23 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 
 		$scope.saveDockerfile = function() {
 			$scope.dockerfile.save();
+			$state.go('connected.dockerfiles');
+		};
+	}])
+	.controller('dockerfilesEditController', ['$scope', '$state', 'DockerConn', 'Dockerfile', function($scope, $state, DockerConn, Dockerfile) {
+		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+		if(!$state.params.dockerfile) throw new Error('Dockerfile param missing');
+
+		$state.params.dockerfile.loadContent(function(err, data) {
+			$scope.dockerfile = $state.params.dockerfile;
+			$scope.$digest();
+		});
+
+		// $scope.dockerfile = Dockerfile.new();
+
+		$scope.saveDockerfile = function() {
+			$scope.dockerfile.save();
+			$state.go('connected.dockerfiles');
 		};
 	}]);
 }());

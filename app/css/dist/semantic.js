@@ -496,2414 +496,6 @@ $.extend($.expr[ ":" ], {
 
 })( jQuery, window , document );
 /*
- * # Semantic - Accordion
- * http://github.com/semantic-org/semantic-ui/
- *
- *
- * Copyright 2014 Contributor
- * Released under the MIT license
- * http://opensource.org/licenses/MIT
- *
- */
-
-;(function ($, window, document, undefined) {
-
-"use strict";
-
-$.fn.accordion = function(parameters) {
-  var
-    $allModules     = $(this),
-
-    time            = new Date().getTime(),
-    performance     = [],
-
-    query           = arguments[0],
-    methodInvoked   = (typeof query == 'string'),
-    queryArguments  = [].slice.call(arguments, 1),
-
-    requestAnimationFrame = window.requestAnimationFrame
-      || window.mozRequestAnimationFrame
-      || window.webkitRequestAnimationFrame
-      || window.msRequestAnimationFrame
-      || function(callback) { setTimeout(callback, 0); },
-
-    returnedValue
-  ;
-  $allModules
-    .each(function() {
-      var
-        settings        = ( $.isPlainObject(parameters) )
-          ? $.extend(true, {}, $.fn.accordion.settings, parameters)
-          : $.extend({}, $.fn.accordion.settings),
-
-        className       = settings.className,
-        namespace       = settings.namespace,
-        selector        = settings.selector,
-        error           = settings.error,
-
-        eventNamespace  = '.' + namespace,
-        moduleNamespace = 'module-' + namespace,
-        moduleSelector  = $allModules.selector || '',
-
-        $module  = $(this),
-        $title   = $module.find(selector.title),
-        $content = $module.find(selector.content),
-
-        element  = this,
-        instance = $module.data(moduleNamespace),
-        observer,
-        module
-      ;
-
-      module = {
-
-        initialize: function() {
-          module.debug('Initializing accordion with bound events', $module);
-          $module
-            .on('click' + eventNamespace, selector.title, module.event.click)
-          ;
-          module.observeChanges();
-          module.instantiate();
-        },
-
-        instantiate: function() {
-          instance = module;
-          $module
-            .data(moduleNamespace, module)
-          ;
-        },
-
-        destroy: function() {
-          module.debug('Destroying previous accordion for', $module);
-          $module
-            .removeData(moduleNamespace)
-          ;
-          $title
-            .off(eventNamespace)
-          ;
-        },
-
-        refresh: function() {
-          $title   = $module.find(selector.title);
-          $content = $module.find(selector.content);
-        },
-
-        observeChanges: function() {
-          if('MutationObserver' in window) {
-            observer = new MutationObserver(function(mutations) {
-              module.debug('DOM tree modified, updating selector cache');
-              module.refresh();
-            });
-            observer.observe(element, {
-              childList : true,
-              subtree   : true
-            });
-            module.debug('Setting up mutation observer', observer);
-          }
-        },
-
-
-        event: {
-          click: function() {
-            $.proxy(module.toggle, this)();
-          }
-        },
-
-        toggle: function(query) {
-          var
-            $activeTitle = (query !== undefined)
-              ? (typeof query === 'number')
-                ? $title.eq(query)
-                : $(query)
-              : $(this),
-            $activeContent = $activeTitle.next($content),
-            contentIsOpen  = $activeContent.is(':visible')
-          ;
-          module.debug('Toggling visibility of content', $activeTitle);
-          if(contentIsOpen) {
-            if(settings.collapsible) {
-              $.proxy(module.close, $activeTitle)();
-            }
-            else {
-              module.debug('Cannot close accordion content collapsing is disabled');
-            }
-          }
-          else {
-            $.proxy(module.open, $activeTitle)();
-          }
-        },
-
-        open: function(query) {
-          var
-            $activeTitle = (query !== undefined)
-              ? (typeof query === 'number')
-                ? $title.eq(query)
-                : $(query)
-              : $(this),
-            $activeContent     = $activeTitle.next($content),
-            currentlyAnimating = $activeContent.is(':animated'),
-            currentlyActive    = $activeContent.hasClass(className.active)
-          ;
-          if(!currentlyAnimating && !currentlyActive) {
-            module.debug('Opening accordion content', $activeTitle);
-            if(settings.exclusive) {
-              $.proxy(module.closeOthers, $activeTitle)();
-            }
-            $activeTitle
-              .addClass(className.active)
-            ;
-            $activeContent
-              .stop()
-              .children()
-                .stop()
-                .animate({
-                  opacity: 1
-                }, settings.duration, module.reset.display)
-                .end()
-              .slideDown(settings.duration, settings.easing, function() {
-                $activeContent
-                  .addClass(className.active)
-                ;
-                $.proxy(module.reset.display, this)();
-                $.proxy(settings.onOpen, this)();
-                $.proxy(settings.onChange, this)();
-              })
-            ;
-          }
-        },
-
-        close: function(query) {
-          var
-            $activeTitle = (query !== undefined)
-              ? (typeof query === 'number')
-                ? $title.eq(query)
-                : $(query)
-              : $(this),
-            $activeContent = $activeTitle.next($content),
-            isActive       = $activeContent.hasClass(className.active)
-          ;
-          if(isActive) {
-            module.debug('Closing accordion content', $activeContent);
-            $activeTitle
-              .removeClass(className.active)
-            ;
-            $activeContent
-              .removeClass(className.active)
-              .show()
-              .stop()
-              .children()
-                .stop()
-                .animate({
-                  opacity: 0
-                }, settings.duration, module.reset.opacity)
-                .end()
-              .slideUp(settings.duration, settings.easing, function() {
-                $.proxy(module.reset.display, this)();
-                $.proxy(settings.onClose, this)();
-                $.proxy(settings.onChange, this)();
-              })
-            ;
-          }
-        },
-
-        closeOthers: function(index) {
-          var
-            $activeTitle = (index !== undefined)
-              ? $title.eq(index)
-              : $(this),
-            $parentTitles    = $activeTitle.parents(selector.content).prev(selector.title),
-            $activeAccordion = $activeTitle.closest(selector.accordion),
-            activeSelector   = selector.title + '.' + className.active + ':visible',
-            activeContent    = selector.content + '.' + className.active + ':visible',
-            $openTitles,
-            $nestedTitles,
-            $openContents
-          ;
-          if(settings.closeNested) {
-            $openTitles   = $activeAccordion.find(activeSelector).not($parentTitles);
-            $openContents = $openTitles.next($content);
-          }
-          else {
-            $openTitles   = $activeAccordion.find(activeSelector).not($parentTitles);
-            $nestedTitles = $activeAccordion.find(activeContent).find(activeSelector).not($parentTitles);
-            $openTitles = $openTitles.not($nestedTitles);
-            $openContents = $openTitles.next($content);
-          }
-          if( ($openTitles.size() > 0) ) {
-            module.debug('Exclusive enabled, closing other content', $openTitles);
-            $openTitles
-              .removeClass(className.active)
-            ;
-            $openContents
-              .stop()
-              .children()
-                .stop()
-                .animate({
-                  opacity: 0
-                }, settings.duration, module.resetOpacity)
-                .end()
-              .slideUp(settings.duration , settings.easing, function() {
-                $(this).removeClass(className.active);
-                $.proxy(module.reset.display, this)();
-              })
-            ;
-          }
-        },
-
-        reset: {
-
-          display: function() {
-            module.verbose('Removing inline display from element', this);
-            $(this).css('display', '');
-            if( $(this).attr('style') === '') {
-              $(this)
-                .attr('style', '')
-                .removeAttr('style')
-              ;
-            }
-          },
-
-          opacity: function() {
-            module.verbose('Removing inline opacity from element', this);
-            $(this).css('opacity', '');
-            if( $(this).attr('style') === '') {
-              $(this)
-                .attr('style', '')
-                .removeAttr('style')
-              ;
-            }
-          },
-
-        },
-
-        setting: function(name, value) {
-          module.debug('Changing setting', name, value);
-          if( $.isPlainObject(name) ) {
-            $.extend(true, settings, name);
-          }
-          else if(value !== undefined) {
-            settings[name] = value;
-          }
-          else {
-            return settings[name];
-          }
-        },
-        internal: function(name, value) {
-          module.debug('Changing internal', name, value);
-          if(value !== undefined) {
-            if( $.isPlainObject(name) ) {
-              $.extend(true, module, name);
-            }
-            else {
-              module[name] = value;
-            }
-          }
-          else {
-            return module[name];
-          }
-        },
-        debug: function() {
-          if(settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.debug.apply(console, arguments);
-            }
-          }
-        },
-        verbose: function() {
-          if(settings.verbose && settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.verbose.apply(console, arguments);
-            }
-          }
-        },
-        error: function() {
-          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-          module.error.apply(console, arguments);
-        },
-        performance: {
-          log: function(message) {
-            var
-              currentTime,
-              executionTime,
-              previousTime
-            ;
-            if(settings.performance) {
-              currentTime   = new Date().getTime();
-              previousTime  = time || currentTime;
-              executionTime = currentTime - previousTime;
-              time          = currentTime;
-              performance.push({
-                'Name'           : message[0],
-                'Arguments'      : [].slice.call(message, 1) || '',
-                'Element'        : element,
-                'Execution Time' : executionTime
-              });
-            }
-            clearTimeout(module.performance.timer);
-            module.performance.timer = setTimeout(module.performance.display, 100);
-          },
-          display: function() {
-            var
-              title = settings.name + ':',
-              totalTime = 0
-            ;
-            time = false;
-            clearTimeout(module.performance.timer);
-            $.each(performance, function(index, data) {
-              totalTime += data['Execution Time'];
-            });
-            title += ' ' + totalTime + 'ms';
-            if(moduleSelector) {
-              title += ' \'' + moduleSelector + '\'';
-            }
-            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
-              console.groupCollapsed(title);
-              if(console.table) {
-                console.table(performance);
-              }
-              else {
-                $.each(performance, function(index, data) {
-                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
-                });
-              }
-              console.groupEnd();
-            }
-            performance = [];
-          }
-        },
-        invoke: function(query, passedArguments, context) {
-          var
-            object = instance,
-            maxDepth,
-            found,
-            response
-          ;
-          passedArguments = passedArguments || queryArguments;
-          context         = element         || context;
-          if(typeof query == 'string' && object !== undefined) {
-            query    = query.split(/[\. ]/);
-            maxDepth = query.length - 1;
-            $.each(query, function(depth, value) {
-              var camelCaseValue = (depth != maxDepth)
-                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                : query
-              ;
-              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
-                object = object[camelCaseValue];
-              }
-              else if( object[camelCaseValue] !== undefined ) {
-                found = object[camelCaseValue];
-                return false;
-              }
-              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
-                object = object[value];
-              }
-              else if( object[value] !== undefined ) {
-                found = object[value];
-                return false;
-              }
-              else {
-                return false;
-              }
-            });
-          }
-          if ( $.isFunction( found ) ) {
-            response = found.apply(context, passedArguments);
-          }
-          else if(found !== undefined) {
-            response = found;
-          }
-          if($.isArray(returnedValue)) {
-            returnedValue.push(response);
-          }
-          else if(returnedValue !== undefined) {
-            returnedValue = [returnedValue, response];
-          }
-          else if(response !== undefined) {
-            returnedValue = response;
-          }
-          return found;
-        }
-      };
-      if(methodInvoked) {
-        if(instance === undefined) {
-          module.initialize();
-        }
-        module.invoke(query);
-      }
-      else {
-        if(instance !== undefined) {
-          module.destroy();
-        }
-        module.initialize();
-      }
-    })
-  ;
-  return (returnedValue !== undefined)
-    ? returnedValue
-    : this
-  ;
-};
-
-$.fn.accordion.settings = {
-
-  name        : 'Accordion',
-  namespace   : 'accordion',
-
-  debug       : false,
-  verbose     : true,
-  performance : true,
-
-  exclusive   : true,
-  collapsible : true,
-  closeNested : false,
-
-  duration    : 500,
-  easing      : 'easeInOutQuint',
-
-  onOpen      : function(){},
-  onClose     : function(){},
-  onChange    : function(){},
-
-  error: {
-    method    : 'The method you called is not defined'
-  },
-
-  className   : {
-    active : 'active'
-  },
-
-  selector    : {
-    accordion : '.accordion',
-    title     : '.title',
-    content   : '.content'
-  }
-
-};
-
-// Adds easing
-$.extend( $.easing, {
-  easeInOutQuint: function (x, t, b, c, d) {
-    if ((t/=d/2) < 1) return c/2*t*t*t*t*t + b;
-    return c/2*((t-=2)*t*t*t*t + 2) + b;
-  }
-});
-
-})( jQuery, window , document );
-
-
-/*
- * # Semantic - Checkbox
- * http://github.com/semantic-org/semantic-ui/
- *
- *
- * Copyright 2014 Contributor
- * Released under the MIT license
- * http://opensource.org/licenses/MIT
- *
- */
-
-;(function ( $, window, document, undefined ) {
-
-"use strict";
-
-$.fn.checkbox = function(parameters) {
-  var
-    $allModules    = $(this),
-    moduleSelector = $allModules.selector || '',
-
-    time           = new Date().getTime(),
-    performance    = [],
-
-    query          = arguments[0],
-    methodInvoked  = (typeof query == 'string'),
-    queryArguments = [].slice.call(arguments, 1),
-    returnedValue
-  ;
-
-  $allModules
-    .each(function() {
-      var
-        settings        = $.extend(true, {}, $.fn.checkbox.settings, parameters),
-
-        className       = settings.className,
-        namespace       = settings.namespace,
-        selector        = settings.selector,
-        error           = settings.error,
-
-        eventNamespace  = '.' + namespace,
-        moduleNamespace = 'module-' + namespace,
-
-        $module         = $(this),
-        $label          = $(this).next(selector.label).first(),
-        $input          = $(this).find(selector.input),
-
-        instance        = $module.data(moduleNamespace),
-
-        observer,
-        element         = this,
-        module
-      ;
-
-      module      = {
-
-        initialize: function() {
-          module.verbose('Initializing checkbox', settings);
-          $module
-            .on('click'   + eventNamespace, module.toggle)
-            .on('keydown' + eventNamespace, selector.input, module.event.keydown)
-          ;
-          if( module.is.checked() ) {
-            module.set.checked();
-            if(settings.fireOnInit) {
-              $.proxy(settings.onChecked, $input.get())();
-            }
-          }
-          else {
-            module.remove.checked();
-            if(settings.fireOnInit) {
-              $.proxy(settings.onUnchecked, $input.get())();
-            }
-          }
-          module.observeChanges();
-
-          module.instantiate();
-        },
-
-        instantiate: function() {
-          module.verbose('Storing instance of module', module);
-          instance = module;
-          $module
-            .data(moduleNamespace, module)
-          ;
-        },
-
-        destroy: function() {
-          module.verbose('Destroying previous module');
-          $module
-            .off(eventNamespace)
-            .removeData(moduleNamespace)
-          ;
-          $input
-            .off(eventNamespace, module.event.keydown)
-          ;
-          $label
-            .off(eventNamespace)
-          ;
-        },
-
-        refresh: function() {
-          $module = $(this);
-          $label  = $(this).next(selector.label).first();
-          $input  = $(this).find(selector.input);
-        },
-
-        observeChanges: function() {
-          if('MutationObserver' in window) {
-            observer = new MutationObserver(function(mutations) {
-              module.debug('DOM tree modified, updating selector cache');
-              module.refresh();
-            });
-            observer.observe(element, {
-              childList : true,
-              subtree   : true
-            });
-            module.debug('Setting up mutation observer', observer);
-          }
-        },
-
-        attachEvents: function(selector, event) {
-          var
-            $toggle = $(selector)
-          ;
-          event = $.isFunction(module[event])
-            ? module[event]
-            : module.toggle
-          ;
-          if($toggle.size() > 0) {
-            module.debug('Attaching checkbox events to element', selector, event);
-            $toggle
-              .on('click' + eventNamespace, event)
-            ;
-          }
-          else {
-            module.error(error.notFound);
-          }
-        },
-
-        event: {
-          keydown: function(event) {
-            var
-              key     = event.which,
-              keyCode = {
-                enter  : 13,
-                escape : 27
-              }
-            ;
-            if( key == keyCode.escape) {
-              module.verbose('Escape key pressed blurring field');
-              $module
-                .blur()
-              ;
-            }
-            if(!event.ctrlKey && key == keyCode.enter) {
-              module.verbose('Enter key pressed, toggling checkbox');
-              $.proxy(module.toggle, this)();
-              event.preventDefault();
-            }
-          }
-        },
-
-        is: {
-          radio: function() {
-            return $module.hasClass(className.radio);
-          },
-          checked: function() {
-            return $input.prop('checked') !== undefined && $input.prop('checked');
-          },
-          unchecked: function() {
-            return !module.is.checked();
-          }
-        },
-
-        can: {
-          change: function() {
-            return !( $module.hasClass(className.disabled) || $module.hasClass(className.readOnly) || $input.prop('disabled') );
-          },
-          uncheck: function() {
-            return (typeof settings.uncheckable === 'boolean')
-              ? settings.uncheckable
-              : !module.is.radio()
-            ;
-          }
-        },
-
-        set: {
-          checked: function() {
-            $module.addClass(className.checked);
-          },
-          tab: function() {
-            if( $input.attr('tabindex') === undefined) {
-              $input
-                .attr('tabindex', 0)
-              ;
-            }
-          }
-        },
-
-        remove: {
-          checked: function() {
-            $module.removeClass(className.checked);
-          }
-        },
-
-        disable: function() {
-          module.debug('Enabling checkbox functionality');
-          $module.addClass(className.disabled);
-          $input.removeProp('disabled');
-          $.proxy(settings.onDisabled, $input.get())();
-        },
-
-        enable: function() {
-          module.debug('Disabling checkbox functionality');
-          $module.removeClass(className.disabled);
-          $input.prop('disabled', 'disabled');
-          $.proxy(settings.onEnabled, $input.get())();
-        },
-
-        check: function() {
-          module.debug('Enabling checkbox', $input);
-          $input
-            .prop('checked', true)
-            .trigger('change')
-          ;
-          module.set.checked();
-          $.proxy(settings.onChange, $input.get())();
-          $.proxy(settings.onChecked, $input.get())();
-        },
-
-        uncheck: function() {
-          module.debug('Disabling checkbox');
-          $input
-            .prop('checked', false)
-            .trigger('change')
-          ;
-          module.remove.checked();
-          $.proxy(settings.onChange, $input.get())();
-          $.proxy(settings.onUnchecked, $input.get())();
-        },
-
-        toggle: function(event) {
-          if( !module.can.change() ) {
-            console.log(module.can.change());
-            module.debug('Checkbox is read-only or disabled, ignoring toggle');
-            return;
-          }
-          module.verbose('Determining new checkbox state');
-          if( module.is.unchecked() ) {
-            module.check();
-          }
-          else if( module.is.checked() && module.can.uncheck() ) {
-            module.uncheck();
-          }
-        },
-        setting: function(name, value) {
-          module.debug('Changing setting', name, value);
-          if( $.isPlainObject(name) ) {
-            $.extend(true, settings, name);
-          }
-          else if(value !== undefined) {
-            settings[name] = value;
-          }
-          else {
-            return settings[name];
-          }
-        },
-        internal: function(name, value) {
-          if( $.isPlainObject(name) ) {
-            $.extend(true, module, name);
-          }
-          else if(value !== undefined) {
-            module[name] = value;
-          }
-          else {
-            return module[name];
-          }
-        },
-        debug: function() {
-          if(settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.debug.apply(console, arguments);
-            }
-          }
-        },
-        verbose: function() {
-          if(settings.verbose && settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.verbose.apply(console, arguments);
-            }
-          }
-        },
-        error: function() {
-          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-          module.error.apply(console, arguments);
-        },
-        performance: {
-          log: function(message) {
-            var
-              currentTime,
-              executionTime,
-              previousTime
-            ;
-            if(settings.performance) {
-              currentTime   = new Date().getTime();
-              previousTime  = time || currentTime;
-              executionTime = currentTime - previousTime;
-              time          = currentTime;
-              performance.push({
-                'Name'           : message[0],
-                'Arguments'      : [].slice.call(message, 1) || '',
-                'Element'        : element,
-                'Execution Time' : executionTime
-              });
-            }
-            clearTimeout(module.performance.timer);
-            module.performance.timer = setTimeout(module.performance.display, 100);
-          },
-          display: function() {
-            var
-              title = settings.name + ':',
-              totalTime = 0
-            ;
-            time = false;
-            clearTimeout(module.performance.timer);
-            $.each(performance, function(index, data) {
-              totalTime += data['Execution Time'];
-            });
-            title += ' ' + totalTime + 'ms';
-            if(moduleSelector) {
-              title += ' \'' + moduleSelector + '\'';
-            }
-            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
-              console.groupCollapsed(title);
-              if(console.table) {
-                console.table(performance);
-              }
-              else {
-                $.each(performance, function(index, data) {
-                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
-                });
-              }
-              console.groupEnd();
-            }
-            performance = [];
-          }
-        },
-        invoke: function(query, passedArguments, context) {
-          var
-            object = instance,
-            maxDepth,
-            found,
-            response
-          ;
-          passedArguments = passedArguments || queryArguments;
-          context         = element         || context;
-          if(typeof query == 'string' && object !== undefined) {
-            query    = query.split(/[\. ]/);
-            maxDepth = query.length - 1;
-            $.each(query, function(depth, value) {
-              var camelCaseValue = (depth != maxDepth)
-                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                : query
-              ;
-              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
-                object = object[camelCaseValue];
-              }
-              else if( object[camelCaseValue] !== undefined ) {
-                found = object[camelCaseValue];
-                return false;
-              }
-              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
-                object = object[value];
-              }
-              else if( object[value] !== undefined ) {
-                found = object[value];
-                return false;
-              }
-              else {
-                return false;
-              }
-            });
-          }
-          if ( $.isFunction( found ) ) {
-            response = found.apply(context, passedArguments);
-          }
-          else if(found !== undefined) {
-            response = found;
-          }
-          if($.isArray(returnedValue)) {
-            returnedValue.push(response);
-          }
-          else if(returnedValue !== undefined) {
-            returnedValue = [returnedValue, response];
-          }
-          else if(response !== undefined) {
-            returnedValue = response;
-          }
-          return found;
-        }
-      };
-
-      if(methodInvoked) {
-        if(instance === undefined) {
-          module.initialize();
-        }
-        module.invoke(query);
-      }
-      else {
-        if(instance !== undefined) {
-          module.destroy();
-        }
-        module.initialize();
-      }
-    })
-  ;
-
-  return (returnedValue !== undefined)
-    ? returnedValue
-    : this
-  ;
-};
-
-$.fn.checkbox.settings = {
-
-  name        : 'Checkbox',
-  namespace   : 'checkbox',
-
-  debug       : false,
-  verbose     : true,
-  performance : true,
-
-  // delegated event context
-  uncheckable : 'auto',
-  fireOnInit  : true,
-
-  onChange    : function(){},
-  onChecked   : function(){},
-  onUnchecked : function(){},
-  onEnabled   : function(){},
-  onDisabled  : function(){},
-
-  className   : {
-    checked  : 'checked',
-    disabled : 'disabled',
-    radio    : 'radio',
-    readOnly : 'read-only'
-  },
-
-  error     : {
-    method   : 'The method you called is not defined.'
-  },
-
-  selector : {
-    input  : 'input[type=checkbox], input[type=radio]',
-    label  : 'label'
-  }
-
-};
-
-})( jQuery, window , document );
-
-/*
- * # Semantic - Dimmer
- * http://github.com/semantic-org/semantic-ui/
- *
- *
- * Copyright 2014 Contributor
- * Released under the MIT license
- * http://opensource.org/licenses/MIT
- *
- */
-
-;(function ( $, window, document, undefined ) {
-
-$.fn.dimmer = function(parameters) {
-  var
-    $allModules     = $(this),
-
-    time            = new Date().getTime(),
-    performance     = [],
-
-    query           = arguments[0],
-    methodInvoked   = (typeof query == 'string'),
-    queryArguments  = [].slice.call(arguments, 1),
-
-    returnedValue
-  ;
-
-  $allModules
-    .each(function() {
-      var
-        settings        = ( $.isPlainObject(parameters) )
-          ? $.extend(true, {}, $.fn.dimmer.settings, parameters)
-          : $.extend({}, $.fn.dimmer.settings),
-
-        selector        = settings.selector,
-        namespace       = settings.namespace,
-        className       = settings.className,
-        error           = settings.error,
-
-        eventNamespace  = '.' + namespace,
-        moduleNamespace = 'module-' + namespace,
-        moduleSelector  = $allModules.selector || '',
-
-        clickEvent      = ('ontouchstart' in document.documentElement)
-          ? 'touchstart'
-          : 'click',
-
-        $module = $(this),
-        $dimmer,
-        $dimmable,
-
-        element   = this,
-        instance  = $module.data(moduleNamespace),
-        module
-      ;
-
-      module = {
-
-        preinitialize: function() {
-          if( module.is.dimmer() ) {
-            $dimmable = $module.parent();
-            $dimmer   = $module;
-          }
-          else {
-            $dimmable = $module;
-            if( module.has.dimmer() ) {
-              if(settings.dimmerName) {
-                $dimmer = $dimmable.children(selector.dimmer).filter('.' + settings.dimmerName);
-              }
-              else {
-                $dimmer = $dimmable.children(selector.dimmer);
-              }
-            }
-            else {
-              $dimmer = module.create();
-            }
-          }
-        },
-
-        initialize: function() {
-          module.debug('Initializing dimmer', settings);
-          if(settings.on == 'hover') {
-            $dimmable
-              .on('mouseenter' + eventNamespace, module.show)
-              .on('mouseleave' + eventNamespace, module.hide)
-            ;
-          }
-          else if(settings.on == 'click') {
-            $dimmable
-              .on(clickEvent + eventNamespace, module.toggle)
-            ;
-          }
-          if( module.is.page() ) {
-            module.debug('Setting as a page dimmer', $dimmable);
-            module.set.pageDimmer();
-          }
-
-          if( module.is.closable() ) {
-            module.verbose('Adding dimmer close event', $dimmer);
-            $dimmer
-              .on(clickEvent + eventNamespace, module.event.click)
-            ;
-          }
-          module.set.dimmable();
-          module.instantiate();
-        },
-
-        instantiate: function() {
-          module.verbose('Storing instance of module', module);
-          instance = module;
-          $module
-            .data(moduleNamespace, instance)
-          ;
-        },
-
-        destroy: function() {
-          module.verbose('Destroying previous module', $dimmer);
-          $module
-            .removeData(moduleNamespace)
-          ;
-          $dimmable
-            .off(eventNamespace)
-          ;
-          $dimmer
-            .off(eventNamespace)
-          ;
-        },
-
-        event: {
-          click: function(event) {
-            module.verbose('Determining if event occured on dimmer', event);
-            if( $dimmer.find(event.target).size() === 0 || $(event.target).is(selector.content) ) {
-              module.hide();
-              event.stopImmediatePropagation();
-            }
-          }
-        },
-
-        addContent: function(element) {
-          var
-            $content = $(element)
-          ;
-          module.debug('Add content to dimmer', $content);
-          if($content.parent()[0] !== $dimmer[0]) {
-            $content.detach().appendTo($dimmer);
-          }
-        },
-
-        create: function() {
-          var
-            $element = $( settings.template.dimmer() )
-          ;
-          if(settings.variation) {
-            module.debug('Creating dimmer with variation', settings.variation);
-            $element.addClass(className.variation);
-          }
-          if(settings.dimmerName) {
-            module.debug('Creating named dimmer', settings.dimmerName);
-            $element.addClass(settings.dimmerName);
-          }
-          $element
-            .appendTo($dimmable)
-          ;
-          return $element;
-        },
-
-        show: function(callback) {
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          module.debug('Showing dimmer', $dimmer, settings);
-          if( (!module.is.dimmed() || module.is.animating()) && module.is.enabled() ) {
-            module.animate.show(callback);
-            $.proxy(settings.onShow, element)();
-            $.proxy(settings.onChange, element)();
-          }
-          else {
-            module.debug('Dimmer is already shown or disabled');
-          }
-        },
-
-        hide: function(callback) {
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          if( module.is.dimmed() || module.is.animating() ) {
-            module.debug('Hiding dimmer', $dimmer);
-            module.animate.hide(callback);
-            $.proxy(settings.onHide, element)();
-            $.proxy(settings.onChange, element)();
-          }
-          else {
-            module.debug('Dimmer is not visible');
-          }
-        },
-
-        toggle: function() {
-          module.verbose('Toggling dimmer visibility', $dimmer);
-          if( !module.is.dimmed() ) {
-            module.show();
-          }
-          else {
-            module.hide();
-          }
-        },
-
-        animate: {
-          show: function(callback) {
-            callback = $.isFunction(callback)
-              ? callback
-              : function(){}
-            ;
-            if(settings.useCSS && $.fn.transition !== undefined && $dimmer.transition('is supported')) {
-              $dimmer
-                .transition({
-                  animation : settings.transition + ' in',
-                  queue       : false,
-                  duration  : module.get.duration(),
-                  onStart   : function() {
-                    module.set.dimmed();
-                  },
-                  onComplete : function() {
-                    module.set.active();
-                    callback();
-                  }
-                })
-              ;
-            }
-            else {
-              module.verbose('Showing dimmer animation with javascript');
-              module.set.dimmed();
-              $dimmer
-                .stop()
-                .css({
-                  opacity : 0,
-                  width   : '100%',
-                  height  : '100%'
-                })
-                .fadeTo(module.get.duration(), 1, function() {
-                  $dimmer.removeAttr('style');
-                  module.set.active();
-                  callback();
-                })
-              ;
-            }
-          },
-          hide: function(callback) {
-            callback = $.isFunction(callback)
-              ? callback
-              : function(){}
-            ;
-            if(settings.useCSS && $.fn.transition !== undefined && $dimmer.transition('is supported')) {
-              module.verbose('Hiding dimmer with css');
-              $dimmer
-                .transition({
-                  animation  : settings.transition + ' out',
-                  queue      : false,
-                  duration   : module.get.duration(),
-                  onStart    : function() {
-                    module.remove.dimmed();
-                  },
-                  onComplete : function() {
-                    module.remove.active();
-                    callback();
-                  }
-                })
-              ;
-            }
-            else {
-              module.verbose('Hiding dimmer with javascript');
-              module.remove.dimmed();
-              $dimmer
-                .stop()
-                .fadeOut(module.get.duration(), function() {
-                  module.remove.active();
-                  $dimmer.removeAttr('style');
-                  callback();
-                })
-              ;
-            }
-          }
-        },
-
-        get: {
-          dimmer: function() {
-            return $dimmer;
-          },
-          duration: function() {
-            if(typeof settings.duration == 'object') {
-              if( module.is.active() ) {
-                return settings.duration.hide;
-              }
-              else {
-                return settings.duration.show;
-              }
-            }
-            return settings.duration;
-          }
-        },
-
-        has: {
-          dimmer: function() {
-            if(settings.dimmerName) {
-              return ($module.children(selector.dimmer).filter('.' + settings.dimmerName).size() > 0);
-            }
-            else {
-              return ( $module.children(selector.dimmer).size() > 0 );
-            }
-          }
-        },
-
-        is: {
-          active: function() {
-            return $dimmer.hasClass(className.active);
-          },
-          animating: function() {
-            return ( $dimmer.is(':animated') || $dimmer.hasClass(className.animating) );
-          },
-          closable: function() {
-            if(settings.closable == 'auto') {
-              if(settings.on == 'hover') {
-                return false;
-              }
-              return true;
-            }
-            return settings.closable;
-          },
-          dimmer: function() {
-            return $module.is(selector.dimmer);
-          },
-          dimmable: function() {
-            return $module.is(selector.dimmable);
-          },
-          dimmed: function() {
-            return $dimmable.hasClass(className.dimmed);
-          },
-          disabled: function() {
-            return $dimmable.hasClass(className.disabled);
-          },
-          enabled: function() {
-            return !module.is.disabled();
-          },
-          page: function () {
-            return $dimmable.is('body');
-          },
-          pageDimmer: function() {
-            return $dimmer.hasClass(className.pageDimmer);
-          }
-        },
-
-        can: {
-          show: function() {
-            return !$dimmer.hasClass(className.disabled);
-          }
-        },
-
-        set: {
-          active: function() {
-            $dimmer.addClass(className.active);
-          },
-          dimmable: function() {
-            $dimmable.addClass(className.dimmable);
-          },
-          dimmed: function() {
-            $dimmable.addClass(className.dimmed);
-          },
-          pageDimmer: function() {
-            $dimmer.addClass(className.pageDimmer);
-          },
-          disabled: function() {
-            $dimmer.addClass(className.disabled);
-          }
-        },
-
-        remove: {
-          active: function() {
-            $dimmer
-              .removeClass(className.active)
-            ;
-          },
-          dimmed: function() {
-            $dimmable.removeClass(className.dimmed);
-          },
-          disabled: function() {
-            $dimmer.removeClass(className.disabled);
-          }
-        },
-
-        setting: function(name, value) {
-          module.debug('Changing setting', name, value);
-          if( $.isPlainObject(name) ) {
-            $.extend(true, settings, name);
-          }
-          else if(value !== undefined) {
-            settings[name] = value;
-          }
-          else {
-            return settings[name];
-          }
-        },
-        internal: function(name, value) {
-          if( $.isPlainObject(name) ) {
-            $.extend(true, module, name);
-          }
-          else if(value !== undefined) {
-            module[name] = value;
-          }
-          else {
-            return module[name];
-          }
-        },
-        debug: function() {
-          if(settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.debug.apply(console, arguments);
-            }
-          }
-        },
-        verbose: function() {
-          if(settings.verbose && settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.verbose.apply(console, arguments);
-            }
-          }
-        },
-        error: function() {
-          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-          module.error.apply(console, arguments);
-        },
-        performance: {
-          log: function(message) {
-            var
-              currentTime,
-              executionTime,
-              previousTime
-            ;
-            if(settings.performance) {
-              currentTime   = new Date().getTime();
-              previousTime  = time || currentTime;
-              executionTime = currentTime - previousTime;
-              time          = currentTime;
-              performance.push({
-                'Name'           : message[0],
-                'Arguments'      : [].slice.call(message, 1) || '',
-                'Element'        : element,
-                'Execution Time' : executionTime
-              });
-            }
-            clearTimeout(module.performance.timer);
-            module.performance.timer = setTimeout(module.performance.display, 100);
-          },
-          display: function() {
-            var
-              title = settings.name + ':',
-              totalTime = 0
-            ;
-            time = false;
-            clearTimeout(module.performance.timer);
-            $.each(performance, function(index, data) {
-              totalTime += data['Execution Time'];
-            });
-            title += ' ' + totalTime + 'ms';
-            if(moduleSelector) {
-              title += ' \'' + moduleSelector + '\'';
-            }
-            if($allModules.size() > 1) {
-              title += ' ' + '(' + $allModules.size() + ')';
-            }
-            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
-              console.groupCollapsed(title);
-              if(console.table) {
-                console.table(performance);
-              }
-              else {
-                $.each(performance, function(index, data) {
-                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
-                });
-              }
-              console.groupEnd();
-            }
-            performance = [];
-          }
-        },
-        invoke: function(query, passedArguments, context) {
-          var
-            object = instance,
-            maxDepth,
-            found,
-            response
-          ;
-          passedArguments = passedArguments || queryArguments;
-          context         = element         || context;
-          if(typeof query == 'string' && object !== undefined) {
-            query    = query.split(/[\. ]/);
-            maxDepth = query.length - 1;
-            $.each(query, function(depth, value) {
-              var camelCaseValue = (depth != maxDepth)
-                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                : query
-              ;
-              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
-                object = object[camelCaseValue];
-              }
-              else if( object[camelCaseValue] !== undefined ) {
-                found = object[camelCaseValue];
-                return false;
-              }
-              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
-                object = object[value];
-              }
-              else if( object[value] !== undefined ) {
-                found = object[value];
-                return false;
-              }
-              else {
-                return false;
-              }
-            });
-          }
-          if ( $.isFunction( found ) ) {
-            response = found.apply(context, passedArguments);
-          }
-          else if(found !== undefined) {
-            response = found;
-          }
-          if($.isArray(returnedValue)) {
-            returnedValue.push(response);
-          }
-          else if(returnedValue !== undefined) {
-            returnedValue = [returnedValue, response];
-          }
-          else if(response !== undefined) {
-            returnedValue = response;
-          }
-          return found;
-        }
-      };
-
-      module.preinitialize();
-
-      if(methodInvoked) {
-        if(instance === undefined) {
-          module.initialize();
-        }
-        module.invoke(query);
-      }
-      else {
-        if(instance !== undefined) {
-          module.destroy();
-        }
-        module.initialize();
-      }
-    })
-  ;
-
-  return (returnedValue !== undefined)
-    ? returnedValue
-    : this
-  ;
-};
-
-$.fn.dimmer.settings = {
-
-  name        : 'Dimmer',
-  namespace   : 'dimmer',
-
-  debug       : false,
-  verbose     : true,
-  performance : true,
-
-  dimmerName  : false,
-  variation   : false,
-  closable    : 'auto',
-  transition  : 'fade',
-  useCSS      : true,
-  on          : false,
-
-  duration    : {
-    show : 500,
-    hide : 500
-  },
-
-  onChange    : function(){},
-  onShow      : function(){},
-  onHide      : function(){},
-
-  error   : {
-    method   : 'The method you called is not defined.'
-  },
-
-  selector: {
-    dimmable : '.dimmable',
-    dimmer   : '.ui.dimmer',
-    content  : '.ui.dimmer > .content, .ui.dimmer > .content > .center'
-  },
-
-  template: {
-    dimmer: function() {
-     return $('<div />').attr('class', 'ui dimmer');
-    }
-  },
-
-  className : {
-    active     : 'active',
-    animating  : 'animating',
-    dimmable   : 'dimmable',
-    dimmed     : 'dimmed',
-    disabled   : 'disabled',
-    hide       : 'hide',
-    pageDimmer : 'page',
-    show       : 'show'
-  }
-
-};
-
-})( jQuery, window , document );
-/*
- * # Semantic - Modal
- * http://github.com/semantic-org/semantic-ui/
- *
- *
- * Copyright 2014 Contributor
- * Released under the MIT license
- * http://opensource.org/licenses/MIT
- *
- */
-
-;(function ( $, window, document, undefined ) {
-
-"use strict";
-
-$.fn.modal = function(parameters) {
-  var
-    $allModules    = $(this),
-    $window        = $(window),
-    $document      = $(document),
-    $body          = $('body'),
-
-    moduleSelector = $allModules.selector || '',
-
-    time           = new Date().getTime(),
-    performance    = [],
-
-    query          = arguments[0],
-    methodInvoked  = (typeof query == 'string'),
-    queryArguments = [].slice.call(arguments, 1),
-
-    requestAnimationFrame = window.requestAnimationFrame
-      || window.mozRequestAnimationFrame
-      || window.webkitRequestAnimationFrame
-      || window.msRequestAnimationFrame
-      || function(callback) { setTimeout(callback, 0); },
-
-    returnedValue
-  ;
-
-  $allModules
-    .each(function() {
-      var
-        settings    = ( $.isPlainObject(parameters) )
-          ? $.extend(true, {}, $.fn.modal.settings, parameters)
-          : $.extend({}, $.fn.modal.settings),
-
-        selector        = settings.selector,
-        className       = settings.className,
-        namespace       = settings.namespace,
-        error           = settings.error,
-
-        eventNamespace  = '.' + namespace,
-        moduleNamespace = 'module-' + namespace,
-
-        $module      = $(this),
-        $context     = $(settings.context),
-        $close       = $module.find(selector.close),
-
-        $allModals,
-        $otherModals,
-        $focusedElement,
-        $dimmable,
-        $dimmer,
-
-        element      = this,
-        instance     = $module.data(moduleNamespace),
-        observer,
-        module
-      ;
-      module  = {
-
-        initialize: function() {
-          module.verbose('Initializing dimmer', $context);
-
-          if($.fn.dimmer === undefined) {
-            module.error(error.dimmer);
-            return;
-          }
-
-          $dimmable = $context
-            .dimmer({
-              debug      : settings.debug,
-              dimmerName : 'modals',
-              closable   : false,
-              useCSS     : true,
-              duration   : {
-                show     : settings.duration * 0.9,
-                hide     : settings.duration * 1.1
-              }
-            })
-          ;
-          if(settings.detachable) {
-            $dimmable.dimmer('add content', $module);
-          }
-
-          $dimmer = $dimmable.dimmer('get dimmer');
-          $otherModals = $module.siblings(selector.modal);
-          $allModals   = $otherModals.add($module);
-
-          module.verbose('Attaching close events', $close);
-          module.bind.events();
-          module.observeChanges();
-
-          module.instantiate();
-        },
-
-        instantiate: function() {
-          module.verbose('Storing instance of modal');
-          instance = module;
-          $module
-            .data(moduleNamespace, instance)
-          ;
-        },
-
-        destroy: function() {
-          module.verbose('Destroying previous modal');
-          $module
-            .removeData(moduleNamespace)
-            .off(eventNamespace)
-          ;
-          $close.off(eventNamespace);
-          $context.dimmer('destroy');
-        },
-
-        observeChanges: function() {
-          if('MutationObserver' in window) {
-            observer = new MutationObserver(function(mutations) {
-              module.debug('DOM tree modified, updating selector cache');
-              module.refresh();
-            });
-            observer.observe(element, {
-              childList : true,
-              subtree   : true
-            });
-            module.debug('Setting up mutation observer', observer);
-          }
-        },
-
-        refresh: function() {
-          module.remove.scrolling();
-          module.cacheSizes();
-          module.set.screenHeight();
-          module.set.type();
-          module.set.position();
-        },
-
-        attachEvents: function(selector, event) {
-          var
-            $toggle = $(selector)
-          ;
-          event = $.isFunction(module[event])
-            ? module[event]
-            : module.toggle
-          ;
-          if($toggle.size() > 0) {
-            module.debug('Attaching modal events to element', selector, event);
-            $toggle
-              .off(eventNamespace)
-              .on('click' + eventNamespace, event)
-            ;
-          }
-          else {
-            module.error(error.notFound, selector);
-          }
-        },
-
-        bind: {
-          events: function() {
-            $close
-              .on('click' + eventNamespace, module.event.close)
-            ;
-            $window
-              .on('resize' + eventNamespace, module.event.resize)
-            ;
-          }
-        },
-
-        event: {
-          close: function() {
-            module.verbose('Closing element pressed');
-            if( $(this).is(selector.approve) ) {
-              if($.proxy(settings.onApprove, element)() !== false) {
-                module.hide();
-              }
-              else {
-                module.verbose('Approve callback returned false cancelling hide');
-              }
-            }
-            else if( $(this).is(selector.deny) ) {
-              if($.proxy(settings.onDeny, element)() !== false) {
-                module.hide();
-              }
-              else {
-                module.verbose('Deny callback returned false cancelling hide');
-              }
-            }
-            else {
-              module.hide();
-            }
-          },
-          click: function(event) {
-            if( $(event.target).closest(selector.modal).size() === 0 ) {
-              module.debug('Dimmer clicked, hiding all modals');
-              if(settings.allowMultiple) {
-                module.hide();
-              }
-              else {
-                module.hideAll();
-              }
-              event.stopImmediatePropagation();
-            }
-          },
-          debounce: function(method, delay) {
-            clearTimeout(module.timer);
-            module.timer = setTimeout(method, delay);
-          },
-          keyboard: function(event) {
-            var
-              keyCode   = event.which,
-              escapeKey = 27
-            ;
-            if(keyCode == escapeKey) {
-              if(settings.closable) {
-                module.debug('Escape key pressed hiding modal');
-                module.hide();
-              }
-              else {
-                module.debug('Escape key pressed, but closable is set to false');
-              }
-              event.preventDefault();
-            }
-          },
-          resize: function() {
-            if( $dimmable.dimmer('is active') ) {
-              requestAnimationFrame(module.refresh);
-            }
-          }
-        },
-
-        toggle: function() {
-          if( module.is.active() || module.is.animating() ) {
-            module.hide();
-          }
-          else {
-            module.show();
-          }
-        },
-
-        show: function(callback) {
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          module.showDimmer();
-          module.showModal(callback);
-        },
-
-        showModal: function(callback) {
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          if( !module.is.active() ) {
-
-            if( $otherModals.filter(':visible').size() > 0 && !settings.allowMultiple) {
-              module.debug('Other modals visible, queueing show animation');
-              module.hideOthers(module.showModal);
-            }
-            else {
-              $.proxy(settings.onShow, element)();
-              if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported')) {
-                module.debug('Showing modal with css animations');
-                module.cacheSizes();
-                module.set.position();
-                module.set.screenHeight();
-                module.set.type();
-                $module
-                  .transition({
-                    debug     : settings.debug,
-                    animation : settings.transition + ' in',
-                    queue     : false,
-                    duration  : settings.duration,
-                    onStart   : function() {
-                      module.set.clickaway();
-                    },
-                    onComplete : function() {
-                      $.proxy(settings.onVisible, element)();
-                      module.add.keyboardShortcuts();
-                      module.save.focus();
-                      module.set.active();
-                      module.set.autofocus();
-                      callback();
-                    }
-                  })
-                ;
-              }
-              else {
-                module.debug('Showing modal with javascript');
-                $module
-                  .fadeIn(settings.duration, settings.easing, function() {
-                    $.proxy(settings.onVisible, element)();
-                    module.add.keyboardShortcuts();
-                    module.save.focus();
-                    module.set.active();
-                    callback();
-                  })
-                ;
-              }
-            }
-          }
-          else {
-            module.debug('Modal is already visible');
-          }
-        },
-
-        showDimmer: function() {
-          if( !$dimmable.dimmer('is active') ) {
-            module.debug('Showing dimmer');
-            $dimmable.dimmer('show');
-          }
-          else {
-            module.debug('Dimmer already visible');
-          }
-        },
-
-        hide: function(callback) {
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          if($allModals.filter(':visible').size() <= 1) {
-            module.hideDimmer();
-          }
-          module.hideModal(callback);
-        },
-
-        hideDimmer: function() {
-          if( !($dimmable.dimmer('is active') || $dimmable.dimmer('is animating')) ) {
-            module.debug('Dimmer is not visible cannot hide');
-            return;
-          }
-          module.debug('Hiding dimmer');
-          module.remove.clickaway();
-          $dimmable.dimmer('hide', function() {
-            if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported')) {
-              module.remove.screenHeight();
-            }
-            module.remove.active();
-          });
-        },
-
-        hideModal: function(callback) {
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          module.debug('Hiding modal');
-          $.proxy(settings.onHide, element)();
-          if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported')) {
-            $module
-              .transition({
-                debug      : settings.debug,
-                animation  : settings.transition + ' out',
-                queue      : false,
-                duration   : settings.duration,
-                onStart    : function() {
-                  module.remove.keyboardShortcuts();
-                },
-                onComplete : function() {
-                  $.proxy(settings.onHidden, element)();
-                  module.remove.active();
-                  module.restore.focus();
-                  callback();
-                }
-              })
-            ;
-          }
-          else {
-            module.remove.keyboardShortcuts();
-            $module
-              .fadeOut(settings.duration, settings.easing, function() {
-                $.proxy(settings.onHidden, element)();
-                module.remove.active();
-                module.restore.focus();
-                callback();
-              })
-            ;
-          }
-        },
-
-        hideAll: function(callback) {
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          if( $allModals.is(':visible') ) {
-            module.debug('Hiding all visible modals');
-            module.hideDimmer();
-            $allModals
-              .filter(':visible')
-                .modal('hide modal', callback)
-            ;
-          }
-        },
-
-        hideOthers: function(callback) {
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          if( $otherModals.is(':visible') ) {
-            module.debug('Hiding other modals', $otherModals);
-            $otherModals
-              .filter(':visible')
-                .modal('hide modal', callback)
-            ;
-          }
-        },
-
-        add: {
-          keyboardShortcuts: function() {
-            module.verbose('Adding keyboard shortcuts');
-            $document
-              .on('keyup' + eventNamespace, module.event.keyboard)
-            ;
-          }
-        },
-
-        save: {
-          focus: function() {
-            $focusedElement = $(document.activeElement).blur();
-          }
-        },
-
-        restore: {
-          focus: function() {
-            if($focusedElement && $focusedElement.size() > 0) {
-              $focusedElement.focus();
-            }
-          }
-        },
-
-        remove: {
-          active: function() {
-            $module.removeClass(className.active);
-          },
-          clickaway: function() {
-            if(settings.closable) {
-              $dimmer
-                .off('click' + eventNamespace)
-              ;
-            }
-          },
-          screenHeight: function() {
-            if(module.cache.height > module.cache.pageHeight) {
-              module.debug('Removing page height');
-              $body
-                .css('height', '')
-              ;
-            }
-          },
-          keyboardShortcuts: function() {
-            module.verbose('Removing keyboard shortcuts');
-            $document
-              .off('keyup' + eventNamespace)
-            ;
-          },
-          scrolling: function() {
-            $dimmable.removeClass(className.scrolling);
-            $module.removeClass(className.scrolling);
-          }
-        },
-
-        cacheSizes: function() {
-          var
-            modalHeight = $module.outerHeight()
-          ;
-          if(modalHeight !== 0) {
-            module.cache = {
-              pageHeight    : $(document).outerHeight(),
-              height        : modalHeight + settings.offset,
-              contextHeight : (settings.context == 'body')
-                ? $(window).height()
-                : $dimmable.height()
-            };
-          }
-          module.debug('Caching modal and container sizes', module.cache);
-        },
-
-        can: {
-          fit: function() {
-            return (module.cache.height < module.cache.contextHeight);
-          }
-        },
-
-        is: {
-          active: function() {
-            return $module.hasClass(className.active);
-          },
-          animating: function() {
-            return $module.transition('is supported')
-              ? $module.transition('is animating')
-              : $module.is(':visible')
-            ;
-          },
-          modernBrowser: function() {
-            // appName for IE11 reports 'Netscape' can no longer use
-            return !(window.ActiveXObject || "ActiveXObject" in window);
-          }
-        },
-
-        set: {
-          autofocus: function() {
-            if(settings.autofocus) {
-              var
-                $inputs    = $module.find(':input:visible'),
-                $autofocus = $inputs.filter('[autofocus]'),
-                $input     = ($autofocus.size() > 0)
-                  ? $autofocus
-                  : $inputs
-              ;
-              $input.first().focus();
-            }
-          },
-          clickaway: function() {
-            if(settings.closable) {
-              $dimmer
-                .off('click' + eventNamespace)
-                .on('click' + eventNamespace, module.event.click)
-              ;
-            }
-          },
-          screenHeight: function() {
-            if(module.cache.height > module.cache.pageHeight) {
-              module.debug('Modal is taller than page content, resizing page height');
-              $body
-                .css('height', module.cache.height + settings.padding)
-              ;
-            }
-          },
-          active: function() {
-            $module.addClass(className.active);
-          },
-          scrolling: function() {
-            $dimmable.addClass(className.scrolling);
-            $module.addClass(className.scrolling);
-          },
-          type: function() {
-            if(module.can.fit()) {
-              module.verbose('Modal fits on screen');
-              module.remove.scrolling();
-            }
-            else {
-              module.verbose('Modal cannot fit on screen setting to scrolling');
-              module.set.scrolling();
-            }
-          },
-          position: function() {
-            module.verbose('Centering modal on page', module.cache);
-            if(module.can.fit()) {
-              $module
-                .css({
-                  top: '',
-                  marginTop: -(module.cache.height / 2)
-                })
-              ;
-            }
-            else {
-              $module
-                .css({
-                  marginTop : '',
-                  top       : $document.scrollTop()
-                })
-              ;
-            }
-          }
-        },
-
-        setting: function(name, value) {
-          module.debug('Changing setting', name, value);
-          if( $.isPlainObject(name) ) {
-            $.extend(true, settings, name);
-          }
-          else if(value !== undefined) {
-            settings[name] = value;
-          }
-          else {
-            return settings[name];
-          }
-        },
-        internal: function(name, value) {
-          if( $.isPlainObject(name) ) {
-            $.extend(true, module, name);
-          }
-          else if(value !== undefined) {
-            module[name] = value;
-          }
-          else {
-            return module[name];
-          }
-        },
-        debug: function() {
-          if(settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.debug.apply(console, arguments);
-            }
-          }
-        },
-        verbose: function() {
-          if(settings.verbose && settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.verbose.apply(console, arguments);
-            }
-          }
-        },
-        error: function() {
-          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-          module.error.apply(console, arguments);
-        },
-        performance: {
-          log: function(message) {
-            var
-              currentTime,
-              executionTime,
-              previousTime
-            ;
-            if(settings.performance) {
-              currentTime   = new Date().getTime();
-              previousTime  = time || currentTime;
-              executionTime = currentTime - previousTime;
-              time          = currentTime;
-              performance.push({
-                'Name'           : message[0],
-                'Arguments'      : [].slice.call(message, 1) || '',
-                'Element'        : element,
-                'Execution Time' : executionTime
-              });
-            }
-            clearTimeout(module.performance.timer);
-            module.performance.timer = setTimeout(module.performance.display, 100);
-          },
-          display: function() {
-            var
-              title = settings.name + ':',
-              totalTime = 0
-            ;
-            time = false;
-            clearTimeout(module.performance.timer);
-            $.each(performance, function(index, data) {
-              totalTime += data['Execution Time'];
-            });
-            title += ' ' + totalTime + 'ms';
-            if(moduleSelector) {
-              title += ' \'' + moduleSelector + '\'';
-            }
-            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
-              console.groupCollapsed(title);
-              if(console.table) {
-                console.table(performance);
-              }
-              else {
-                $.each(performance, function(index, data) {
-                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
-                });
-              }
-              console.groupEnd();
-            }
-            performance = [];
-          }
-        },
-        invoke: function(query, passedArguments, context) {
-          var
-            object = instance,
-            maxDepth,
-            found,
-            response
-          ;
-          passedArguments = passedArguments || queryArguments;
-          context         = element         || context;
-          if(typeof query == 'string' && object !== undefined) {
-            query    = query.split(/[\. ]/);
-            maxDepth = query.length - 1;
-            $.each(query, function(depth, value) {
-              var camelCaseValue = (depth != maxDepth)
-                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                : query
-              ;
-              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
-                object = object[camelCaseValue];
-              }
-              else if( object[camelCaseValue] !== undefined ) {
-                found = object[camelCaseValue];
-                return false;
-              }
-              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
-                object = object[value];
-              }
-              else if( object[value] !== undefined ) {
-                found = object[value];
-                return false;
-              }
-              else {
-                return false;
-              }
-            });
-          }
-          if ( $.isFunction( found ) ) {
-            response = found.apply(context, passedArguments);
-          }
-          else if(found !== undefined) {
-            response = found;
-          }
-          if($.isArray(returnedValue)) {
-            returnedValue.push(response);
-          }
-          else if(returnedValue !== undefined) {
-            returnedValue = [returnedValue, response];
-          }
-          else if(response !== undefined) {
-            returnedValue = response;
-          }
-          return found;
-        }
-      };
-
-      if(methodInvoked) {
-        if(instance === undefined) {
-          module.initialize();
-        }
-        module.invoke(query);
-      }
-      else {
-        if(instance !== undefined) {
-          module.destroy();
-        }
-        module.initialize();
-      }
-    })
-  ;
-
-  return (returnedValue !== undefined)
-    ? returnedValue
-    : this
-  ;
-};
-
-$.fn.modal.settings = {
-
-  name          : 'Modal',
-  namespace     : 'modal',
-
-  debug         : false,
-  verbose       : true,
-  performance   : true,
-
-  allowMultiple : false,
-  detachable    : true,
-  closable      : true,
-  autofocus     : true,
-
-  context       : 'body',
-
-  duration      : 500,
-  easing        : 'easeOutExpo',
-  offset        : 0,
-  transition    : 'scale',
-
-  padding       : 30,
-
-  onShow        : function(){},
-  onHide        : function(){},
-
-  onVisible     : function(){},
-  onHidden      : function(){},
-
-  onApprove     : function(){ return true; },
-  onDeny        : function(){ return true; },
-
-  selector    : {
-    close    : '.close, .actions .button',
-    approve  : '.actions .positive, .actions .approve, .actions .ok',
-    deny     : '.actions .negative, .actions .deny, .actions .cancel',
-    modal    : '.ui.modal'
-  },
-  error : {
-    dimmer    : 'UI Dimmer, a required component is not included in this page',
-    method    : 'The method you called is not defined.',
-    notFound  : 'The element you specified could not be found'
-  },
-  className : {
-    active    : 'active',
-    scrolling : 'scrolling'
-  }
-};
-
-
-})( jQuery, window , document );
-
-/*
  * # Semantic - Form Validation
  * http://github.com/semantic-org/semantic-ui/
  *
@@ -3693,6 +1285,1607 @@ $.fn.form.settings = {
         (max === undefined || value <= max)
       );
     }
+  }
+
+};
+
+})( jQuery, window , document );
+
+/*
+ * # Semantic - Accordion
+ * http://github.com/semantic-org/semantic-ui/
+ *
+ *
+ * Copyright 2014 Contributor
+ * Released under the MIT license
+ * http://opensource.org/licenses/MIT
+ *
+ */
+
+;(function ($, window, document, undefined) {
+
+"use strict";
+
+$.fn.accordion = function(parameters) {
+  var
+    $allModules     = $(this),
+
+    time            = new Date().getTime(),
+    performance     = [],
+
+    query           = arguments[0],
+    methodInvoked   = (typeof query == 'string'),
+    queryArguments  = [].slice.call(arguments, 1),
+
+    requestAnimationFrame = window.requestAnimationFrame
+      || window.mozRequestAnimationFrame
+      || window.webkitRequestAnimationFrame
+      || window.msRequestAnimationFrame
+      || function(callback) { setTimeout(callback, 0); },
+
+    returnedValue
+  ;
+  $allModules
+    .each(function() {
+      var
+        settings        = ( $.isPlainObject(parameters) )
+          ? $.extend(true, {}, $.fn.accordion.settings, parameters)
+          : $.extend({}, $.fn.accordion.settings),
+
+        className       = settings.className,
+        namespace       = settings.namespace,
+        selector        = settings.selector,
+        error           = settings.error,
+
+        eventNamespace  = '.' + namespace,
+        moduleNamespace = 'module-' + namespace,
+        moduleSelector  = $allModules.selector || '',
+
+        $module  = $(this),
+        $title   = $module.find(selector.title),
+        $content = $module.find(selector.content),
+
+        element  = this,
+        instance = $module.data(moduleNamespace),
+        observer,
+        module
+      ;
+
+      module = {
+
+        initialize: function() {
+          module.debug('Initializing accordion with bound events', $module);
+          $module
+            .on('click' + eventNamespace, selector.title, module.event.click)
+          ;
+          module.observeChanges();
+          module.instantiate();
+        },
+
+        instantiate: function() {
+          instance = module;
+          $module
+            .data(moduleNamespace, module)
+          ;
+        },
+
+        destroy: function() {
+          module.debug('Destroying previous accordion for', $module);
+          $module
+            .removeData(moduleNamespace)
+          ;
+          $title
+            .off(eventNamespace)
+          ;
+        },
+
+        refresh: function() {
+          $title   = $module.find(selector.title);
+          $content = $module.find(selector.content);
+        },
+
+        observeChanges: function() {
+          if('MutationObserver' in window) {
+            observer = new MutationObserver(function(mutations) {
+              module.debug('DOM tree modified, updating selector cache');
+              module.refresh();
+            });
+            observer.observe(element, {
+              childList : true,
+              subtree   : true
+            });
+            module.debug('Setting up mutation observer', observer);
+          }
+        },
+
+
+        event: {
+          click: function() {
+            $.proxy(module.toggle, this)();
+          }
+        },
+
+        toggle: function(query) {
+          var
+            $activeTitle = (query !== undefined)
+              ? (typeof query === 'number')
+                ? $title.eq(query)
+                : $(query)
+              : $(this),
+            $activeContent = $activeTitle.next($content),
+            contentIsOpen  = $activeContent.is(':visible')
+          ;
+          module.debug('Toggling visibility of content', $activeTitle);
+          if(contentIsOpen) {
+            if(settings.collapsible) {
+              $.proxy(module.close, $activeTitle)();
+            }
+            else {
+              module.debug('Cannot close accordion content collapsing is disabled');
+            }
+          }
+          else {
+            $.proxy(module.open, $activeTitle)();
+          }
+        },
+
+        open: function(query) {
+          var
+            $activeTitle = (query !== undefined)
+              ? (typeof query === 'number')
+                ? $title.eq(query)
+                : $(query)
+              : $(this),
+            $activeContent     = $activeTitle.next($content),
+            currentlyAnimating = $activeContent.is(':animated'),
+            currentlyActive    = $activeContent.hasClass(className.active)
+          ;
+          if(!currentlyAnimating && !currentlyActive) {
+            module.debug('Opening accordion content', $activeTitle);
+            if(settings.exclusive) {
+              $.proxy(module.closeOthers, $activeTitle)();
+            }
+            $activeTitle
+              .addClass(className.active)
+            ;
+            $activeContent
+              .stop()
+              .children()
+                .stop()
+                .animate({
+                  opacity: 1
+                }, settings.duration, module.reset.display)
+                .end()
+              .slideDown(settings.duration, settings.easing, function() {
+                $activeContent
+                  .addClass(className.active)
+                ;
+                $.proxy(module.reset.display, this)();
+                $.proxy(settings.onOpen, this)();
+                $.proxy(settings.onChange, this)();
+              })
+            ;
+          }
+        },
+
+        close: function(query) {
+          var
+            $activeTitle = (query !== undefined)
+              ? (typeof query === 'number')
+                ? $title.eq(query)
+                : $(query)
+              : $(this),
+            $activeContent = $activeTitle.next($content),
+            isActive       = $activeContent.hasClass(className.active)
+          ;
+          if(isActive) {
+            module.debug('Closing accordion content', $activeContent);
+            $activeTitle
+              .removeClass(className.active)
+            ;
+            $activeContent
+              .removeClass(className.active)
+              .show()
+              .stop()
+              .children()
+                .stop()
+                .animate({
+                  opacity: 0
+                }, settings.duration, module.reset.opacity)
+                .end()
+              .slideUp(settings.duration, settings.easing, function() {
+                $.proxy(module.reset.display, this)();
+                $.proxy(settings.onClose, this)();
+                $.proxy(settings.onChange, this)();
+              })
+            ;
+          }
+        },
+
+        closeOthers: function(index) {
+          var
+            $activeTitle = (index !== undefined)
+              ? $title.eq(index)
+              : $(this),
+            $parentTitles    = $activeTitle.parents(selector.content).prev(selector.title),
+            $activeAccordion = $activeTitle.closest(selector.accordion),
+            activeSelector   = selector.title + '.' + className.active + ':visible',
+            activeContent    = selector.content + '.' + className.active + ':visible',
+            $openTitles,
+            $nestedTitles,
+            $openContents
+          ;
+          if(settings.closeNested) {
+            $openTitles   = $activeAccordion.find(activeSelector).not($parentTitles);
+            $openContents = $openTitles.next($content);
+          }
+          else {
+            $openTitles   = $activeAccordion.find(activeSelector).not($parentTitles);
+            $nestedTitles = $activeAccordion.find(activeContent).find(activeSelector).not($parentTitles);
+            $openTitles = $openTitles.not($nestedTitles);
+            $openContents = $openTitles.next($content);
+          }
+          if( ($openTitles.size() > 0) ) {
+            module.debug('Exclusive enabled, closing other content', $openTitles);
+            $openTitles
+              .removeClass(className.active)
+            ;
+            $openContents
+              .stop()
+              .children()
+                .stop()
+                .animate({
+                  opacity: 0
+                }, settings.duration, module.resetOpacity)
+                .end()
+              .slideUp(settings.duration , settings.easing, function() {
+                $(this).removeClass(className.active);
+                $.proxy(module.reset.display, this)();
+              })
+            ;
+          }
+        },
+
+        reset: {
+
+          display: function() {
+            module.verbose('Removing inline display from element', this);
+            $(this).css('display', '');
+            if( $(this).attr('style') === '') {
+              $(this)
+                .attr('style', '')
+                .removeAttr('style')
+              ;
+            }
+          },
+
+          opacity: function() {
+            module.verbose('Removing inline opacity from element', this);
+            $(this).css('opacity', '');
+            if( $(this).attr('style') === '') {
+              $(this)
+                .attr('style', '')
+                .removeAttr('style')
+              ;
+            }
+          },
+
+        },
+
+        setting: function(name, value) {
+          module.debug('Changing setting', name, value);
+          if( $.isPlainObject(name) ) {
+            $.extend(true, settings, name);
+          }
+          else if(value !== undefined) {
+            settings[name] = value;
+          }
+          else {
+            return settings[name];
+          }
+        },
+        internal: function(name, value) {
+          module.debug('Changing internal', name, value);
+          if(value !== undefined) {
+            if( $.isPlainObject(name) ) {
+              $.extend(true, module, name);
+            }
+            else {
+              module[name] = value;
+            }
+          }
+          else {
+            return module[name];
+          }
+        },
+        debug: function() {
+          if(settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.debug.apply(console, arguments);
+            }
+          }
+        },
+        verbose: function() {
+          if(settings.verbose && settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.verbose.apply(console, arguments);
+            }
+          }
+        },
+        error: function() {
+          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
+          module.error.apply(console, arguments);
+        },
+        performance: {
+          log: function(message) {
+            var
+              currentTime,
+              executionTime,
+              previousTime
+            ;
+            if(settings.performance) {
+              currentTime   = new Date().getTime();
+              previousTime  = time || currentTime;
+              executionTime = currentTime - previousTime;
+              time          = currentTime;
+              performance.push({
+                'Name'           : message[0],
+                'Arguments'      : [].slice.call(message, 1) || '',
+                'Element'        : element,
+                'Execution Time' : executionTime
+              });
+            }
+            clearTimeout(module.performance.timer);
+            module.performance.timer = setTimeout(module.performance.display, 100);
+          },
+          display: function() {
+            var
+              title = settings.name + ':',
+              totalTime = 0
+            ;
+            time = false;
+            clearTimeout(module.performance.timer);
+            $.each(performance, function(index, data) {
+              totalTime += data['Execution Time'];
+            });
+            title += ' ' + totalTime + 'ms';
+            if(moduleSelector) {
+              title += ' \'' + moduleSelector + '\'';
+            }
+            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
+              console.groupCollapsed(title);
+              if(console.table) {
+                console.table(performance);
+              }
+              else {
+                $.each(performance, function(index, data) {
+                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
+                });
+              }
+              console.groupEnd();
+            }
+            performance = [];
+          }
+        },
+        invoke: function(query, passedArguments, context) {
+          var
+            object = instance,
+            maxDepth,
+            found,
+            response
+          ;
+          passedArguments = passedArguments || queryArguments;
+          context         = element         || context;
+          if(typeof query == 'string' && object !== undefined) {
+            query    = query.split(/[\. ]/);
+            maxDepth = query.length - 1;
+            $.each(query, function(depth, value) {
+              var camelCaseValue = (depth != maxDepth)
+                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
+                : query
+              ;
+              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
+                object = object[camelCaseValue];
+              }
+              else if( object[camelCaseValue] !== undefined ) {
+                found = object[camelCaseValue];
+                return false;
+              }
+              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
+                object = object[value];
+              }
+              else if( object[value] !== undefined ) {
+                found = object[value];
+                return false;
+              }
+              else {
+                return false;
+              }
+            });
+          }
+          if ( $.isFunction( found ) ) {
+            response = found.apply(context, passedArguments);
+          }
+          else if(found !== undefined) {
+            response = found;
+          }
+          if($.isArray(returnedValue)) {
+            returnedValue.push(response);
+          }
+          else if(returnedValue !== undefined) {
+            returnedValue = [returnedValue, response];
+          }
+          else if(response !== undefined) {
+            returnedValue = response;
+          }
+          return found;
+        }
+      };
+      if(methodInvoked) {
+        if(instance === undefined) {
+          module.initialize();
+        }
+        module.invoke(query);
+      }
+      else {
+        if(instance !== undefined) {
+          module.destroy();
+        }
+        module.initialize();
+      }
+    })
+  ;
+  return (returnedValue !== undefined)
+    ? returnedValue
+    : this
+  ;
+};
+
+$.fn.accordion.settings = {
+
+  name        : 'Accordion',
+  namespace   : 'accordion',
+
+  debug       : false,
+  verbose     : true,
+  performance : true,
+
+  exclusive   : true,
+  collapsible : true,
+  closeNested : false,
+
+  duration    : 500,
+  easing      : 'easeInOutQuint',
+
+  onOpen      : function(){},
+  onClose     : function(){},
+  onChange    : function(){},
+
+  error: {
+    method    : 'The method you called is not defined'
+  },
+
+  className   : {
+    active : 'active'
+  },
+
+  selector    : {
+    accordion : '.accordion',
+    title     : '.title',
+    content   : '.content'
+  }
+
+};
+
+// Adds easing
+$.extend( $.easing, {
+  easeInOutQuint: function (x, t, b, c, d) {
+    if ((t/=d/2) < 1) return c/2*t*t*t*t*t + b;
+    return c/2*((t-=2)*t*t*t*t + 2) + b;
+  }
+});
+
+})( jQuery, window , document );
+
+
+/*
+ * # Semantic - Dimmer
+ * http://github.com/semantic-org/semantic-ui/
+ *
+ *
+ * Copyright 2014 Contributor
+ * Released under the MIT license
+ * http://opensource.org/licenses/MIT
+ *
+ */
+
+;(function ( $, window, document, undefined ) {
+
+$.fn.dimmer = function(parameters) {
+  var
+    $allModules     = $(this),
+
+    time            = new Date().getTime(),
+    performance     = [],
+
+    query           = arguments[0],
+    methodInvoked   = (typeof query == 'string'),
+    queryArguments  = [].slice.call(arguments, 1),
+
+    returnedValue
+  ;
+
+  $allModules
+    .each(function() {
+      var
+        settings        = ( $.isPlainObject(parameters) )
+          ? $.extend(true, {}, $.fn.dimmer.settings, parameters)
+          : $.extend({}, $.fn.dimmer.settings),
+
+        selector        = settings.selector,
+        namespace       = settings.namespace,
+        className       = settings.className,
+        error           = settings.error,
+
+        eventNamespace  = '.' + namespace,
+        moduleNamespace = 'module-' + namespace,
+        moduleSelector  = $allModules.selector || '',
+
+        clickEvent      = ('ontouchstart' in document.documentElement)
+          ? 'touchstart'
+          : 'click',
+
+        $module = $(this),
+        $dimmer,
+        $dimmable,
+
+        element   = this,
+        instance  = $module.data(moduleNamespace),
+        module
+      ;
+
+      module = {
+
+        preinitialize: function() {
+          if( module.is.dimmer() ) {
+            $dimmable = $module.parent();
+            $dimmer   = $module;
+          }
+          else {
+            $dimmable = $module;
+            if( module.has.dimmer() ) {
+              if(settings.dimmerName) {
+                $dimmer = $dimmable.children(selector.dimmer).filter('.' + settings.dimmerName);
+              }
+              else {
+                $dimmer = $dimmable.children(selector.dimmer);
+              }
+            }
+            else {
+              $dimmer = module.create();
+            }
+          }
+        },
+
+        initialize: function() {
+          module.debug('Initializing dimmer', settings);
+          if(settings.on == 'hover') {
+            $dimmable
+              .on('mouseenter' + eventNamespace, module.show)
+              .on('mouseleave' + eventNamespace, module.hide)
+            ;
+          }
+          else if(settings.on == 'click') {
+            $dimmable
+              .on(clickEvent + eventNamespace, module.toggle)
+            ;
+          }
+          if( module.is.page() ) {
+            module.debug('Setting as a page dimmer', $dimmable);
+            module.set.pageDimmer();
+          }
+
+          if( module.is.closable() ) {
+            module.verbose('Adding dimmer close event', $dimmer);
+            $dimmer
+              .on(clickEvent + eventNamespace, module.event.click)
+            ;
+          }
+          module.set.dimmable();
+          module.instantiate();
+        },
+
+        instantiate: function() {
+          module.verbose('Storing instance of module', module);
+          instance = module;
+          $module
+            .data(moduleNamespace, instance)
+          ;
+        },
+
+        destroy: function() {
+          module.verbose('Destroying previous module', $dimmer);
+          $module
+            .removeData(moduleNamespace)
+          ;
+          $dimmable
+            .off(eventNamespace)
+          ;
+          $dimmer
+            .off(eventNamespace)
+          ;
+        },
+
+        event: {
+          click: function(event) {
+            module.verbose('Determining if event occured on dimmer', event);
+            if( $dimmer.find(event.target).size() === 0 || $(event.target).is(selector.content) ) {
+              module.hide();
+              event.stopImmediatePropagation();
+            }
+          }
+        },
+
+        addContent: function(element) {
+          var
+            $content = $(element)
+          ;
+          module.debug('Add content to dimmer', $content);
+          if($content.parent()[0] !== $dimmer[0]) {
+            $content.detach().appendTo($dimmer);
+          }
+        },
+
+        create: function() {
+          var
+            $element = $( settings.template.dimmer() )
+          ;
+          if(settings.variation) {
+            module.debug('Creating dimmer with variation', settings.variation);
+            $element.addClass(className.variation);
+          }
+          if(settings.dimmerName) {
+            module.debug('Creating named dimmer', settings.dimmerName);
+            $element.addClass(settings.dimmerName);
+          }
+          $element
+            .appendTo($dimmable)
+          ;
+          return $element;
+        },
+
+        show: function(callback) {
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          module.debug('Showing dimmer', $dimmer, settings);
+          if( (!module.is.dimmed() || module.is.animating()) && module.is.enabled() ) {
+            module.animate.show(callback);
+            $.proxy(settings.onShow, element)();
+            $.proxy(settings.onChange, element)();
+          }
+          else {
+            module.debug('Dimmer is already shown or disabled');
+          }
+        },
+
+        hide: function(callback) {
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          if( module.is.dimmed() || module.is.animating() ) {
+            module.debug('Hiding dimmer', $dimmer);
+            module.animate.hide(callback);
+            $.proxy(settings.onHide, element)();
+            $.proxy(settings.onChange, element)();
+          }
+          else {
+            module.debug('Dimmer is not visible');
+          }
+        },
+
+        toggle: function() {
+          module.verbose('Toggling dimmer visibility', $dimmer);
+          if( !module.is.dimmed() ) {
+            module.show();
+          }
+          else {
+            module.hide();
+          }
+        },
+
+        animate: {
+          show: function(callback) {
+            callback = $.isFunction(callback)
+              ? callback
+              : function(){}
+            ;
+            if(settings.useCSS && $.fn.transition !== undefined && $dimmer.transition('is supported')) {
+              $dimmer
+                .transition({
+                  animation : settings.transition + ' in',
+                  queue       : false,
+                  duration  : module.get.duration(),
+                  onStart   : function() {
+                    module.set.dimmed();
+                  },
+                  onComplete : function() {
+                    module.set.active();
+                    callback();
+                  }
+                })
+              ;
+            }
+            else {
+              module.verbose('Showing dimmer animation with javascript');
+              module.set.dimmed();
+              $dimmer
+                .stop()
+                .css({
+                  opacity : 0,
+                  width   : '100%',
+                  height  : '100%'
+                })
+                .fadeTo(module.get.duration(), 1, function() {
+                  $dimmer.removeAttr('style');
+                  module.set.active();
+                  callback();
+                })
+              ;
+            }
+          },
+          hide: function(callback) {
+            callback = $.isFunction(callback)
+              ? callback
+              : function(){}
+            ;
+            if(settings.useCSS && $.fn.transition !== undefined && $dimmer.transition('is supported')) {
+              module.verbose('Hiding dimmer with css');
+              $dimmer
+                .transition({
+                  animation  : settings.transition + ' out',
+                  queue      : false,
+                  duration   : module.get.duration(),
+                  onStart    : function() {
+                    module.remove.dimmed();
+                  },
+                  onComplete : function() {
+                    module.remove.active();
+                    callback();
+                  }
+                })
+              ;
+            }
+            else {
+              module.verbose('Hiding dimmer with javascript');
+              module.remove.dimmed();
+              $dimmer
+                .stop()
+                .fadeOut(module.get.duration(), function() {
+                  module.remove.active();
+                  $dimmer.removeAttr('style');
+                  callback();
+                })
+              ;
+            }
+          }
+        },
+
+        get: {
+          dimmer: function() {
+            return $dimmer;
+          },
+          duration: function() {
+            if(typeof settings.duration == 'object') {
+              if( module.is.active() ) {
+                return settings.duration.hide;
+              }
+              else {
+                return settings.duration.show;
+              }
+            }
+            return settings.duration;
+          }
+        },
+
+        has: {
+          dimmer: function() {
+            if(settings.dimmerName) {
+              return ($module.children(selector.dimmer).filter('.' + settings.dimmerName).size() > 0);
+            }
+            else {
+              return ( $module.children(selector.dimmer).size() > 0 );
+            }
+          }
+        },
+
+        is: {
+          active: function() {
+            return $dimmer.hasClass(className.active);
+          },
+          animating: function() {
+            return ( $dimmer.is(':animated') || $dimmer.hasClass(className.animating) );
+          },
+          closable: function() {
+            if(settings.closable == 'auto') {
+              if(settings.on == 'hover') {
+                return false;
+              }
+              return true;
+            }
+            return settings.closable;
+          },
+          dimmer: function() {
+            return $module.is(selector.dimmer);
+          },
+          dimmable: function() {
+            return $module.is(selector.dimmable);
+          },
+          dimmed: function() {
+            return $dimmable.hasClass(className.dimmed);
+          },
+          disabled: function() {
+            return $dimmable.hasClass(className.disabled);
+          },
+          enabled: function() {
+            return !module.is.disabled();
+          },
+          page: function () {
+            return $dimmable.is('body');
+          },
+          pageDimmer: function() {
+            return $dimmer.hasClass(className.pageDimmer);
+          }
+        },
+
+        can: {
+          show: function() {
+            return !$dimmer.hasClass(className.disabled);
+          }
+        },
+
+        set: {
+          active: function() {
+            $dimmer.addClass(className.active);
+          },
+          dimmable: function() {
+            $dimmable.addClass(className.dimmable);
+          },
+          dimmed: function() {
+            $dimmable.addClass(className.dimmed);
+          },
+          pageDimmer: function() {
+            $dimmer.addClass(className.pageDimmer);
+          },
+          disabled: function() {
+            $dimmer.addClass(className.disabled);
+          }
+        },
+
+        remove: {
+          active: function() {
+            $dimmer
+              .removeClass(className.active)
+            ;
+          },
+          dimmed: function() {
+            $dimmable.removeClass(className.dimmed);
+          },
+          disabled: function() {
+            $dimmer.removeClass(className.disabled);
+          }
+        },
+
+        setting: function(name, value) {
+          module.debug('Changing setting', name, value);
+          if( $.isPlainObject(name) ) {
+            $.extend(true, settings, name);
+          }
+          else if(value !== undefined) {
+            settings[name] = value;
+          }
+          else {
+            return settings[name];
+          }
+        },
+        internal: function(name, value) {
+          if( $.isPlainObject(name) ) {
+            $.extend(true, module, name);
+          }
+          else if(value !== undefined) {
+            module[name] = value;
+          }
+          else {
+            return module[name];
+          }
+        },
+        debug: function() {
+          if(settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.debug.apply(console, arguments);
+            }
+          }
+        },
+        verbose: function() {
+          if(settings.verbose && settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.verbose.apply(console, arguments);
+            }
+          }
+        },
+        error: function() {
+          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
+          module.error.apply(console, arguments);
+        },
+        performance: {
+          log: function(message) {
+            var
+              currentTime,
+              executionTime,
+              previousTime
+            ;
+            if(settings.performance) {
+              currentTime   = new Date().getTime();
+              previousTime  = time || currentTime;
+              executionTime = currentTime - previousTime;
+              time          = currentTime;
+              performance.push({
+                'Name'           : message[0],
+                'Arguments'      : [].slice.call(message, 1) || '',
+                'Element'        : element,
+                'Execution Time' : executionTime
+              });
+            }
+            clearTimeout(module.performance.timer);
+            module.performance.timer = setTimeout(module.performance.display, 100);
+          },
+          display: function() {
+            var
+              title = settings.name + ':',
+              totalTime = 0
+            ;
+            time = false;
+            clearTimeout(module.performance.timer);
+            $.each(performance, function(index, data) {
+              totalTime += data['Execution Time'];
+            });
+            title += ' ' + totalTime + 'ms';
+            if(moduleSelector) {
+              title += ' \'' + moduleSelector + '\'';
+            }
+            if($allModules.size() > 1) {
+              title += ' ' + '(' + $allModules.size() + ')';
+            }
+            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
+              console.groupCollapsed(title);
+              if(console.table) {
+                console.table(performance);
+              }
+              else {
+                $.each(performance, function(index, data) {
+                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
+                });
+              }
+              console.groupEnd();
+            }
+            performance = [];
+          }
+        },
+        invoke: function(query, passedArguments, context) {
+          var
+            object = instance,
+            maxDepth,
+            found,
+            response
+          ;
+          passedArguments = passedArguments || queryArguments;
+          context         = element         || context;
+          if(typeof query == 'string' && object !== undefined) {
+            query    = query.split(/[\. ]/);
+            maxDepth = query.length - 1;
+            $.each(query, function(depth, value) {
+              var camelCaseValue = (depth != maxDepth)
+                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
+                : query
+              ;
+              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
+                object = object[camelCaseValue];
+              }
+              else if( object[camelCaseValue] !== undefined ) {
+                found = object[camelCaseValue];
+                return false;
+              }
+              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
+                object = object[value];
+              }
+              else if( object[value] !== undefined ) {
+                found = object[value];
+                return false;
+              }
+              else {
+                return false;
+              }
+            });
+          }
+          if ( $.isFunction( found ) ) {
+            response = found.apply(context, passedArguments);
+          }
+          else if(found !== undefined) {
+            response = found;
+          }
+          if($.isArray(returnedValue)) {
+            returnedValue.push(response);
+          }
+          else if(returnedValue !== undefined) {
+            returnedValue = [returnedValue, response];
+          }
+          else if(response !== undefined) {
+            returnedValue = response;
+          }
+          return found;
+        }
+      };
+
+      module.preinitialize();
+
+      if(methodInvoked) {
+        if(instance === undefined) {
+          module.initialize();
+        }
+        module.invoke(query);
+      }
+      else {
+        if(instance !== undefined) {
+          module.destroy();
+        }
+        module.initialize();
+      }
+    })
+  ;
+
+  return (returnedValue !== undefined)
+    ? returnedValue
+    : this
+  ;
+};
+
+$.fn.dimmer.settings = {
+
+  name        : 'Dimmer',
+  namespace   : 'dimmer',
+
+  debug       : false,
+  verbose     : true,
+  performance : true,
+
+  dimmerName  : false,
+  variation   : false,
+  closable    : 'auto',
+  transition  : 'fade',
+  useCSS      : true,
+  on          : false,
+
+  duration    : {
+    show : 500,
+    hide : 500
+  },
+
+  onChange    : function(){},
+  onShow      : function(){},
+  onHide      : function(){},
+
+  error   : {
+    method   : 'The method you called is not defined.'
+  },
+
+  selector: {
+    dimmable : '.dimmable',
+    dimmer   : '.ui.dimmer',
+    content  : '.ui.dimmer > .content, .ui.dimmer > .content > .center'
+  },
+
+  template: {
+    dimmer: function() {
+     return $('<div />').attr('class', 'ui dimmer');
+    }
+  },
+
+  className : {
+    active     : 'active',
+    animating  : 'animating',
+    dimmable   : 'dimmable',
+    dimmed     : 'dimmed',
+    disabled   : 'disabled',
+    hide       : 'hide',
+    pageDimmer : 'page',
+    show       : 'show'
+  }
+
+};
+
+})( jQuery, window , document );
+/*
+ * # Semantic - Checkbox
+ * http://github.com/semantic-org/semantic-ui/
+ *
+ *
+ * Copyright 2014 Contributor
+ * Released under the MIT license
+ * http://opensource.org/licenses/MIT
+ *
+ */
+
+;(function ( $, window, document, undefined ) {
+
+"use strict";
+
+$.fn.checkbox = function(parameters) {
+  var
+    $allModules    = $(this),
+    moduleSelector = $allModules.selector || '',
+
+    time           = new Date().getTime(),
+    performance    = [],
+
+    query          = arguments[0],
+    methodInvoked  = (typeof query == 'string'),
+    queryArguments = [].slice.call(arguments, 1),
+    returnedValue
+  ;
+
+  $allModules
+    .each(function() {
+      var
+        settings        = $.extend(true, {}, $.fn.checkbox.settings, parameters),
+
+        className       = settings.className,
+        namespace       = settings.namespace,
+        selector        = settings.selector,
+        error           = settings.error,
+
+        eventNamespace  = '.' + namespace,
+        moduleNamespace = 'module-' + namespace,
+
+        $module         = $(this),
+        $label          = $(this).next(selector.label).first(),
+        $input          = $(this).find(selector.input),
+
+        instance        = $module.data(moduleNamespace),
+
+        observer,
+        element         = this,
+        module
+      ;
+
+      module      = {
+
+        initialize: function() {
+          module.verbose('Initializing checkbox', settings);
+          $module
+            .on('click'   + eventNamespace, module.toggle)
+            .on('keydown' + eventNamespace, selector.input, module.event.keydown)
+          ;
+          if( module.is.checked() ) {
+            module.set.checked();
+            if(settings.fireOnInit) {
+              $.proxy(settings.onChecked, $input.get())();
+            }
+          }
+          else {
+            module.remove.checked();
+            if(settings.fireOnInit) {
+              $.proxy(settings.onUnchecked, $input.get())();
+            }
+          }
+          module.observeChanges();
+
+          module.instantiate();
+        },
+
+        instantiate: function() {
+          module.verbose('Storing instance of module', module);
+          instance = module;
+          $module
+            .data(moduleNamespace, module)
+          ;
+        },
+
+        destroy: function() {
+          module.verbose('Destroying previous module');
+          $module
+            .off(eventNamespace)
+            .removeData(moduleNamespace)
+          ;
+          $input
+            .off(eventNamespace, module.event.keydown)
+          ;
+          $label
+            .off(eventNamespace)
+          ;
+        },
+
+        refresh: function() {
+          $module = $(this);
+          $label  = $(this).next(selector.label).first();
+          $input  = $(this).find(selector.input);
+        },
+
+        observeChanges: function() {
+          if('MutationObserver' in window) {
+            observer = new MutationObserver(function(mutations) {
+              module.debug('DOM tree modified, updating selector cache');
+              module.refresh();
+            });
+            observer.observe(element, {
+              childList : true,
+              subtree   : true
+            });
+            module.debug('Setting up mutation observer', observer);
+          }
+        },
+
+        attachEvents: function(selector, event) {
+          var
+            $toggle = $(selector)
+          ;
+          event = $.isFunction(module[event])
+            ? module[event]
+            : module.toggle
+          ;
+          if($toggle.size() > 0) {
+            module.debug('Attaching checkbox events to element', selector, event);
+            $toggle
+              .on('click' + eventNamespace, event)
+            ;
+          }
+          else {
+            module.error(error.notFound);
+          }
+        },
+
+        event: {
+          keydown: function(event) {
+            var
+              key     = event.which,
+              keyCode = {
+                enter  : 13,
+                escape : 27
+              }
+            ;
+            if( key == keyCode.escape) {
+              module.verbose('Escape key pressed blurring field');
+              $module
+                .blur()
+              ;
+            }
+            if(!event.ctrlKey && key == keyCode.enter) {
+              module.verbose('Enter key pressed, toggling checkbox');
+              $.proxy(module.toggle, this)();
+              event.preventDefault();
+            }
+          }
+        },
+
+        is: {
+          radio: function() {
+            return $module.hasClass(className.radio);
+          },
+          checked: function() {
+            return $input.prop('checked') !== undefined && $input.prop('checked');
+          },
+          unchecked: function() {
+            return !module.is.checked();
+          }
+        },
+
+        can: {
+          change: function() {
+            return !( $module.hasClass(className.disabled) || $module.hasClass(className.readOnly) || $input.prop('disabled') );
+          },
+          uncheck: function() {
+            return (typeof settings.uncheckable === 'boolean')
+              ? settings.uncheckable
+              : !module.is.radio()
+            ;
+          }
+        },
+
+        set: {
+          checked: function() {
+            $module.addClass(className.checked);
+          },
+          tab: function() {
+            if( $input.attr('tabindex') === undefined) {
+              $input
+                .attr('tabindex', 0)
+              ;
+            }
+          }
+        },
+
+        remove: {
+          checked: function() {
+            $module.removeClass(className.checked);
+          }
+        },
+
+        disable: function() {
+          module.debug('Enabling checkbox functionality');
+          $module.addClass(className.disabled);
+          $input.removeProp('disabled');
+          $.proxy(settings.onDisabled, $input.get())();
+        },
+
+        enable: function() {
+          module.debug('Disabling checkbox functionality');
+          $module.removeClass(className.disabled);
+          $input.prop('disabled', 'disabled');
+          $.proxy(settings.onEnabled, $input.get())();
+        },
+
+        check: function() {
+          module.debug('Enabling checkbox', $input);
+          $input
+            .prop('checked', true)
+            .trigger('change')
+          ;
+          module.set.checked();
+          $.proxy(settings.onChange, $input.get())();
+          $.proxy(settings.onChecked, $input.get())();
+        },
+
+        uncheck: function() {
+          module.debug('Disabling checkbox');
+          $input
+            .prop('checked', false)
+            .trigger('change')
+          ;
+          module.remove.checked();
+          $.proxy(settings.onChange, $input.get())();
+          $.proxy(settings.onUnchecked, $input.get())();
+        },
+
+        toggle: function(event) {
+          if( !module.can.change() ) {
+            console.log(module.can.change());
+            module.debug('Checkbox is read-only or disabled, ignoring toggle');
+            return;
+          }
+          module.verbose('Determining new checkbox state');
+          if( module.is.unchecked() ) {
+            module.check();
+          }
+          else if( module.is.checked() && module.can.uncheck() ) {
+            module.uncheck();
+          }
+        },
+        setting: function(name, value) {
+          module.debug('Changing setting', name, value);
+          if( $.isPlainObject(name) ) {
+            $.extend(true, settings, name);
+          }
+          else if(value !== undefined) {
+            settings[name] = value;
+          }
+          else {
+            return settings[name];
+          }
+        },
+        internal: function(name, value) {
+          if( $.isPlainObject(name) ) {
+            $.extend(true, module, name);
+          }
+          else if(value !== undefined) {
+            module[name] = value;
+          }
+          else {
+            return module[name];
+          }
+        },
+        debug: function() {
+          if(settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.debug.apply(console, arguments);
+            }
+          }
+        },
+        verbose: function() {
+          if(settings.verbose && settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.verbose.apply(console, arguments);
+            }
+          }
+        },
+        error: function() {
+          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
+          module.error.apply(console, arguments);
+        },
+        performance: {
+          log: function(message) {
+            var
+              currentTime,
+              executionTime,
+              previousTime
+            ;
+            if(settings.performance) {
+              currentTime   = new Date().getTime();
+              previousTime  = time || currentTime;
+              executionTime = currentTime - previousTime;
+              time          = currentTime;
+              performance.push({
+                'Name'           : message[0],
+                'Arguments'      : [].slice.call(message, 1) || '',
+                'Element'        : element,
+                'Execution Time' : executionTime
+              });
+            }
+            clearTimeout(module.performance.timer);
+            module.performance.timer = setTimeout(module.performance.display, 100);
+          },
+          display: function() {
+            var
+              title = settings.name + ':',
+              totalTime = 0
+            ;
+            time = false;
+            clearTimeout(module.performance.timer);
+            $.each(performance, function(index, data) {
+              totalTime += data['Execution Time'];
+            });
+            title += ' ' + totalTime + 'ms';
+            if(moduleSelector) {
+              title += ' \'' + moduleSelector + '\'';
+            }
+            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
+              console.groupCollapsed(title);
+              if(console.table) {
+                console.table(performance);
+              }
+              else {
+                $.each(performance, function(index, data) {
+                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
+                });
+              }
+              console.groupEnd();
+            }
+            performance = [];
+          }
+        },
+        invoke: function(query, passedArguments, context) {
+          var
+            object = instance,
+            maxDepth,
+            found,
+            response
+          ;
+          passedArguments = passedArguments || queryArguments;
+          context         = element         || context;
+          if(typeof query == 'string' && object !== undefined) {
+            query    = query.split(/[\. ]/);
+            maxDepth = query.length - 1;
+            $.each(query, function(depth, value) {
+              var camelCaseValue = (depth != maxDepth)
+                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
+                : query
+              ;
+              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
+                object = object[camelCaseValue];
+              }
+              else if( object[camelCaseValue] !== undefined ) {
+                found = object[camelCaseValue];
+                return false;
+              }
+              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
+                object = object[value];
+              }
+              else if( object[value] !== undefined ) {
+                found = object[value];
+                return false;
+              }
+              else {
+                return false;
+              }
+            });
+          }
+          if ( $.isFunction( found ) ) {
+            response = found.apply(context, passedArguments);
+          }
+          else if(found !== undefined) {
+            response = found;
+          }
+          if($.isArray(returnedValue)) {
+            returnedValue.push(response);
+          }
+          else if(returnedValue !== undefined) {
+            returnedValue = [returnedValue, response];
+          }
+          else if(response !== undefined) {
+            returnedValue = response;
+          }
+          return found;
+        }
+      };
+
+      if(methodInvoked) {
+        if(instance === undefined) {
+          module.initialize();
+        }
+        module.invoke(query);
+      }
+      else {
+        if(instance !== undefined) {
+          module.destroy();
+        }
+        module.initialize();
+      }
+    })
+  ;
+
+  return (returnedValue !== undefined)
+    ? returnedValue
+    : this
+  ;
+};
+
+$.fn.checkbox.settings = {
+
+  name        : 'Checkbox',
+  namespace   : 'checkbox',
+
+  debug       : false,
+  verbose     : true,
+  performance : true,
+
+  // delegated event context
+  uncheckable : 'auto',
+  fireOnInit  : true,
+
+  onChange    : function(){},
+  onChecked   : function(){},
+  onUnchecked : function(){},
+  onEnabled   : function(){},
+  onDisabled  : function(){},
+
+  className   : {
+    checked  : 'checked',
+    disabled : 'disabled',
+    radio    : 'radio',
+    readOnly : 'read-only'
+  },
+
+  error     : {
+    method   : 'The method you called is not defined.'
+  },
+
+  selector : {
+    input  : 'input[type=checkbox], input[type=radio]',
+    label  : 'label'
   }
 
 };
@@ -5152,6 +4345,2775 @@ $.extend( $.easing, {
 
 })( jQuery, window , document );
 /*
+ * # Semantic - Modal
+ * http://github.com/semantic-org/semantic-ui/
+ *
+ *
+ * Copyright 2014 Contributor
+ * Released under the MIT license
+ * http://opensource.org/licenses/MIT
+ *
+ */
+
+;(function ( $, window, document, undefined ) {
+
+"use strict";
+
+$.fn.modal = function(parameters) {
+  var
+    $allModules    = $(this),
+    $window        = $(window),
+    $document      = $(document),
+    $body          = $('body'),
+
+    moduleSelector = $allModules.selector || '',
+
+    time           = new Date().getTime(),
+    performance    = [],
+
+    query          = arguments[0],
+    methodInvoked  = (typeof query == 'string'),
+    queryArguments = [].slice.call(arguments, 1),
+
+    requestAnimationFrame = window.requestAnimationFrame
+      || window.mozRequestAnimationFrame
+      || window.webkitRequestAnimationFrame
+      || window.msRequestAnimationFrame
+      || function(callback) { setTimeout(callback, 0); },
+
+    returnedValue
+  ;
+
+  $allModules
+    .each(function() {
+      var
+        settings    = ( $.isPlainObject(parameters) )
+          ? $.extend(true, {}, $.fn.modal.settings, parameters)
+          : $.extend({}, $.fn.modal.settings),
+
+        selector        = settings.selector,
+        className       = settings.className,
+        namespace       = settings.namespace,
+        error           = settings.error,
+
+        eventNamespace  = '.' + namespace,
+        moduleNamespace = 'module-' + namespace,
+
+        $module      = $(this),
+        $context     = $(settings.context),
+        $close       = $module.find(selector.close),
+
+        $allModals,
+        $otherModals,
+        $focusedElement,
+        $dimmable,
+        $dimmer,
+
+        element      = this,
+        instance     = $module.data(moduleNamespace),
+        observer,
+        module
+      ;
+      module  = {
+
+        initialize: function() {
+          module.verbose('Initializing dimmer', $context);
+
+          if($.fn.dimmer === undefined) {
+            module.error(error.dimmer);
+            return;
+          }
+
+          $dimmable = $context
+            .dimmer({
+              debug      : settings.debug,
+              dimmerName : 'modals',
+              closable   : false,
+              useCSS     : true,
+              duration   : {
+                show     : settings.duration * 0.9,
+                hide     : settings.duration * 1.1
+              }
+            })
+          ;
+          if(settings.detachable) {
+            $dimmable.dimmer('add content', $module);
+          }
+
+          $dimmer = $dimmable.dimmer('get dimmer');
+          $otherModals = $module.siblings(selector.modal);
+          $allModals   = $otherModals.add($module);
+
+          module.verbose('Attaching close events', $close);
+          module.bind.events();
+          module.observeChanges();
+
+          module.instantiate();
+        },
+
+        instantiate: function() {
+          module.verbose('Storing instance of modal');
+          instance = module;
+          $module
+            .data(moduleNamespace, instance)
+          ;
+        },
+
+        destroy: function() {
+          module.verbose('Destroying previous modal');
+          $module
+            .removeData(moduleNamespace)
+            .off(eventNamespace)
+          ;
+          $close.off(eventNamespace);
+          $context.dimmer('destroy');
+        },
+
+        observeChanges: function() {
+          if('MutationObserver' in window) {
+            observer = new MutationObserver(function(mutations) {
+              module.debug('DOM tree modified, updating selector cache');
+              module.refresh();
+            });
+            observer.observe(element, {
+              childList : true,
+              subtree   : true
+            });
+            module.debug('Setting up mutation observer', observer);
+          }
+        },
+
+        refresh: function() {
+          module.remove.scrolling();
+          module.cacheSizes();
+          module.set.screenHeight();
+          module.set.type();
+          module.set.position();
+        },
+
+        attachEvents: function(selector, event) {
+          var
+            $toggle = $(selector)
+          ;
+          event = $.isFunction(module[event])
+            ? module[event]
+            : module.toggle
+          ;
+          if($toggle.size() > 0) {
+            module.debug('Attaching modal events to element', selector, event);
+            $toggle
+              .off(eventNamespace)
+              .on('click' + eventNamespace, event)
+            ;
+          }
+          else {
+            module.error(error.notFound, selector);
+          }
+        },
+
+        bind: {
+          events: function() {
+            $close
+              .on('click' + eventNamespace, module.event.close)
+            ;
+            $window
+              .on('resize' + eventNamespace, module.event.resize)
+            ;
+          }
+        },
+
+        event: {
+          close: function() {
+            module.verbose('Closing element pressed');
+            if( $(this).is(selector.approve) ) {
+              if($.proxy(settings.onApprove, element)() !== false) {
+                module.hide();
+              }
+              else {
+                module.verbose('Approve callback returned false cancelling hide');
+              }
+            }
+            else if( $(this).is(selector.deny) ) {
+              if($.proxy(settings.onDeny, element)() !== false) {
+                module.hide();
+              }
+              else {
+                module.verbose('Deny callback returned false cancelling hide');
+              }
+            }
+            else {
+              module.hide();
+            }
+          },
+          click: function(event) {
+            if( $(event.target).closest(selector.modal).size() === 0 ) {
+              module.debug('Dimmer clicked, hiding all modals');
+              if(settings.allowMultiple) {
+                module.hide();
+              }
+              else {
+                module.hideAll();
+              }
+              event.stopImmediatePropagation();
+            }
+          },
+          debounce: function(method, delay) {
+            clearTimeout(module.timer);
+            module.timer = setTimeout(method, delay);
+          },
+          keyboard: function(event) {
+            var
+              keyCode   = event.which,
+              escapeKey = 27
+            ;
+            if(keyCode == escapeKey) {
+              if(settings.closable) {
+                module.debug('Escape key pressed hiding modal');
+                module.hide();
+              }
+              else {
+                module.debug('Escape key pressed, but closable is set to false');
+              }
+              event.preventDefault();
+            }
+          },
+          resize: function() {
+            if( $dimmable.dimmer('is active') ) {
+              requestAnimationFrame(module.refresh);
+            }
+          }
+        },
+
+        toggle: function() {
+          if( module.is.active() || module.is.animating() ) {
+            module.hide();
+          }
+          else {
+            module.show();
+          }
+        },
+
+        show: function(callback) {
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          module.showDimmer();
+          module.showModal(callback);
+        },
+
+        showModal: function(callback) {
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          if( !module.is.active() ) {
+
+            if( $otherModals.filter(':visible').size() > 0 && !settings.allowMultiple) {
+              module.debug('Other modals visible, queueing show animation');
+              module.hideOthers(module.showModal);
+            }
+            else {
+              $.proxy(settings.onShow, element)();
+              if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported')) {
+                module.debug('Showing modal with css animations');
+                module.cacheSizes();
+                module.set.position();
+                module.set.screenHeight();
+                module.set.type();
+                $module
+                  .transition({
+                    debug     : settings.debug,
+                    animation : settings.transition + ' in',
+                    queue     : false,
+                    duration  : settings.duration,
+                    onStart   : function() {
+                      module.set.clickaway();
+                    },
+                    onComplete : function() {
+                      $.proxy(settings.onVisible, element)();
+                      module.add.keyboardShortcuts();
+                      module.save.focus();
+                      module.set.active();
+                      module.set.autofocus();
+                      callback();
+                    }
+                  })
+                ;
+              }
+              else {
+                module.debug('Showing modal with javascript');
+                $module
+                  .fadeIn(settings.duration, settings.easing, function() {
+                    $.proxy(settings.onVisible, element)();
+                    module.add.keyboardShortcuts();
+                    module.save.focus();
+                    module.set.active();
+                    callback();
+                  })
+                ;
+              }
+            }
+          }
+          else {
+            module.debug('Modal is already visible');
+          }
+        },
+
+        showDimmer: function() {
+          if( !$dimmable.dimmer('is active') ) {
+            module.debug('Showing dimmer');
+            $dimmable.dimmer('show');
+          }
+          else {
+            module.debug('Dimmer already visible');
+          }
+        },
+
+        hide: function(callback) {
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          if($allModals.filter(':visible').size() <= 1) {
+            module.hideDimmer();
+          }
+          module.hideModal(callback);
+        },
+
+        hideDimmer: function() {
+          if( !($dimmable.dimmer('is active') || $dimmable.dimmer('is animating')) ) {
+            module.debug('Dimmer is not visible cannot hide');
+            return;
+          }
+          module.debug('Hiding dimmer');
+          module.remove.clickaway();
+          $dimmable.dimmer('hide', function() {
+            if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported')) {
+              module.remove.screenHeight();
+            }
+            module.remove.active();
+          });
+        },
+
+        hideModal: function(callback) {
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          module.debug('Hiding modal');
+          $.proxy(settings.onHide, element)();
+          if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported')) {
+            $module
+              .transition({
+                debug      : settings.debug,
+                animation  : settings.transition + ' out',
+                queue      : false,
+                duration   : settings.duration,
+                onStart    : function() {
+                  module.remove.keyboardShortcuts();
+                },
+                onComplete : function() {
+                  $.proxy(settings.onHidden, element)();
+                  module.remove.active();
+                  module.restore.focus();
+                  callback();
+                }
+              })
+            ;
+          }
+          else {
+            module.remove.keyboardShortcuts();
+            $module
+              .fadeOut(settings.duration, settings.easing, function() {
+                $.proxy(settings.onHidden, element)();
+                module.remove.active();
+                module.restore.focus();
+                callback();
+              })
+            ;
+          }
+        },
+
+        hideAll: function(callback) {
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          if( $allModals.is(':visible') ) {
+            module.debug('Hiding all visible modals');
+            module.hideDimmer();
+            $allModals
+              .filter(':visible')
+                .modal('hide modal', callback)
+            ;
+          }
+        },
+
+        hideOthers: function(callback) {
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          if( $otherModals.is(':visible') ) {
+            module.debug('Hiding other modals', $otherModals);
+            $otherModals
+              .filter(':visible')
+                .modal('hide modal', callback)
+            ;
+          }
+        },
+
+        add: {
+          keyboardShortcuts: function() {
+            module.verbose('Adding keyboard shortcuts');
+            $document
+              .on('keyup' + eventNamespace, module.event.keyboard)
+            ;
+          }
+        },
+
+        save: {
+          focus: function() {
+            $focusedElement = $(document.activeElement).blur();
+          }
+        },
+
+        restore: {
+          focus: function() {
+            if($focusedElement && $focusedElement.size() > 0) {
+              $focusedElement.focus();
+            }
+          }
+        },
+
+        remove: {
+          active: function() {
+            $module.removeClass(className.active);
+          },
+          clickaway: function() {
+            if(settings.closable) {
+              $dimmer
+                .off('click' + eventNamespace)
+              ;
+            }
+          },
+          screenHeight: function() {
+            if(module.cache.height > module.cache.pageHeight) {
+              module.debug('Removing page height');
+              $body
+                .css('height', '')
+              ;
+            }
+          },
+          keyboardShortcuts: function() {
+            module.verbose('Removing keyboard shortcuts');
+            $document
+              .off('keyup' + eventNamespace)
+            ;
+          },
+          scrolling: function() {
+            $dimmable.removeClass(className.scrolling);
+            $module.removeClass(className.scrolling);
+          }
+        },
+
+        cacheSizes: function() {
+          var
+            modalHeight = $module.outerHeight()
+          ;
+          if(modalHeight !== 0) {
+            module.cache = {
+              pageHeight    : $(document).outerHeight(),
+              height        : modalHeight + settings.offset,
+              contextHeight : (settings.context == 'body')
+                ? $(window).height()
+                : $dimmable.height()
+            };
+          }
+          module.debug('Caching modal and container sizes', module.cache);
+        },
+
+        can: {
+          fit: function() {
+            return (module.cache.height < module.cache.contextHeight);
+          }
+        },
+
+        is: {
+          active: function() {
+            return $module.hasClass(className.active);
+          },
+          animating: function() {
+            return $module.transition('is supported')
+              ? $module.transition('is animating')
+              : $module.is(':visible')
+            ;
+          },
+          modernBrowser: function() {
+            // appName for IE11 reports 'Netscape' can no longer use
+            return !(window.ActiveXObject || "ActiveXObject" in window);
+          }
+        },
+
+        set: {
+          autofocus: function() {
+            if(settings.autofocus) {
+              var
+                $inputs    = $module.find(':input:visible'),
+                $autofocus = $inputs.filter('[autofocus]'),
+                $input     = ($autofocus.size() > 0)
+                  ? $autofocus
+                  : $inputs
+              ;
+              $input.first().focus();
+            }
+          },
+          clickaway: function() {
+            if(settings.closable) {
+              $dimmer
+                .off('click' + eventNamespace)
+                .on('click' + eventNamespace, module.event.click)
+              ;
+            }
+          },
+          screenHeight: function() {
+            if(module.cache.height > module.cache.pageHeight) {
+              module.debug('Modal is taller than page content, resizing page height');
+              $body
+                .css('height', module.cache.height + settings.padding)
+              ;
+            }
+          },
+          active: function() {
+            $module.addClass(className.active);
+          },
+          scrolling: function() {
+            $dimmable.addClass(className.scrolling);
+            $module.addClass(className.scrolling);
+          },
+          type: function() {
+            if(module.can.fit()) {
+              module.verbose('Modal fits on screen');
+              module.remove.scrolling();
+            }
+            else {
+              module.verbose('Modal cannot fit on screen setting to scrolling');
+              module.set.scrolling();
+            }
+          },
+          position: function() {
+            module.verbose('Centering modal on page', module.cache);
+            if(module.can.fit()) {
+              $module
+                .css({
+                  top: '',
+                  marginTop: -(module.cache.height / 2)
+                })
+              ;
+            }
+            else {
+              $module
+                .css({
+                  marginTop : '',
+                  top       : $document.scrollTop()
+                })
+              ;
+            }
+          }
+        },
+
+        setting: function(name, value) {
+          module.debug('Changing setting', name, value);
+          if( $.isPlainObject(name) ) {
+            $.extend(true, settings, name);
+          }
+          else if(value !== undefined) {
+            settings[name] = value;
+          }
+          else {
+            return settings[name];
+          }
+        },
+        internal: function(name, value) {
+          if( $.isPlainObject(name) ) {
+            $.extend(true, module, name);
+          }
+          else if(value !== undefined) {
+            module[name] = value;
+          }
+          else {
+            return module[name];
+          }
+        },
+        debug: function() {
+          if(settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.debug.apply(console, arguments);
+            }
+          }
+        },
+        verbose: function() {
+          if(settings.verbose && settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.verbose.apply(console, arguments);
+            }
+          }
+        },
+        error: function() {
+          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
+          module.error.apply(console, arguments);
+        },
+        performance: {
+          log: function(message) {
+            var
+              currentTime,
+              executionTime,
+              previousTime
+            ;
+            if(settings.performance) {
+              currentTime   = new Date().getTime();
+              previousTime  = time || currentTime;
+              executionTime = currentTime - previousTime;
+              time          = currentTime;
+              performance.push({
+                'Name'           : message[0],
+                'Arguments'      : [].slice.call(message, 1) || '',
+                'Element'        : element,
+                'Execution Time' : executionTime
+              });
+            }
+            clearTimeout(module.performance.timer);
+            module.performance.timer = setTimeout(module.performance.display, 100);
+          },
+          display: function() {
+            var
+              title = settings.name + ':',
+              totalTime = 0
+            ;
+            time = false;
+            clearTimeout(module.performance.timer);
+            $.each(performance, function(index, data) {
+              totalTime += data['Execution Time'];
+            });
+            title += ' ' + totalTime + 'ms';
+            if(moduleSelector) {
+              title += ' \'' + moduleSelector + '\'';
+            }
+            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
+              console.groupCollapsed(title);
+              if(console.table) {
+                console.table(performance);
+              }
+              else {
+                $.each(performance, function(index, data) {
+                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
+                });
+              }
+              console.groupEnd();
+            }
+            performance = [];
+          }
+        },
+        invoke: function(query, passedArguments, context) {
+          var
+            object = instance,
+            maxDepth,
+            found,
+            response
+          ;
+          passedArguments = passedArguments || queryArguments;
+          context         = element         || context;
+          if(typeof query == 'string' && object !== undefined) {
+            query    = query.split(/[\. ]/);
+            maxDepth = query.length - 1;
+            $.each(query, function(depth, value) {
+              var camelCaseValue = (depth != maxDepth)
+                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
+                : query
+              ;
+              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
+                object = object[camelCaseValue];
+              }
+              else if( object[camelCaseValue] !== undefined ) {
+                found = object[camelCaseValue];
+                return false;
+              }
+              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
+                object = object[value];
+              }
+              else if( object[value] !== undefined ) {
+                found = object[value];
+                return false;
+              }
+              else {
+                return false;
+              }
+            });
+          }
+          if ( $.isFunction( found ) ) {
+            response = found.apply(context, passedArguments);
+          }
+          else if(found !== undefined) {
+            response = found;
+          }
+          if($.isArray(returnedValue)) {
+            returnedValue.push(response);
+          }
+          else if(returnedValue !== undefined) {
+            returnedValue = [returnedValue, response];
+          }
+          else if(response !== undefined) {
+            returnedValue = response;
+          }
+          return found;
+        }
+      };
+
+      if(methodInvoked) {
+        if(instance === undefined) {
+          module.initialize();
+        }
+        module.invoke(query);
+      }
+      else {
+        if(instance !== undefined) {
+          module.destroy();
+        }
+        module.initialize();
+      }
+    })
+  ;
+
+  return (returnedValue !== undefined)
+    ? returnedValue
+    : this
+  ;
+};
+
+$.fn.modal.settings = {
+
+  name          : 'Modal',
+  namespace     : 'modal',
+
+  debug         : false,
+  verbose       : true,
+  performance   : true,
+
+  allowMultiple : false,
+  detachable    : true,
+  closable      : true,
+  autofocus     : true,
+
+  context       : 'body',
+
+  duration      : 500,
+  easing        : 'easeOutExpo',
+  offset        : 0,
+  transition    : 'scale',
+
+  padding       : 30,
+
+  onShow        : function(){},
+  onHide        : function(){},
+
+  onVisible     : function(){},
+  onHidden      : function(){},
+
+  onApprove     : function(){ return true; },
+  onDeny        : function(){ return true; },
+
+  selector    : {
+    close    : '.close, .actions .button',
+    approve  : '.actions .positive, .actions .approve, .actions .ok',
+    deny     : '.actions .negative, .actions .deny, .actions .cancel',
+    modal    : '.ui.modal'
+  },
+  error : {
+    dimmer    : 'UI Dimmer, a required component is not included in this page',
+    method    : 'The method you called is not defined.',
+    notFound  : 'The element you specified could not be found'
+  },
+  className : {
+    active    : 'active',
+    scrolling : 'scrolling'
+  }
+};
+
+
+})( jQuery, window , document );
+
+/*
+ * # Semantic - Progress
+ * http://github.com/semantic-org/semantic-ui/
+ *
+ *
+ * Copyright 2014 Contributor
+ * Released under the MIT license
+ * http://opensource.org/licenses/MIT
+ *
+ */
+
+;(function ( $, window, document, undefined ) {
+
+"use strict";
+
+$.fn.progress = function(parameters) {
+  var
+    $allModules    = $(this),
+
+    moduleSelector = $allModules.selector || '',
+
+    hasTouch       = ('ontouchstart' in document.documentElement),
+    time           = new Date().getTime(),
+    performance    = [],
+
+    query          = arguments[0],
+    methodInvoked  = (typeof query == 'string'),
+    queryArguments = [].slice.call(arguments, 1),
+    returnedValue
+  ;
+
+  $allModules
+    .each(function() {
+      var
+        settings          = ( $.isPlainObject(parameters) )
+          ? $.extend(true, {}, $.fn.progress.settings, parameters)
+          : $.extend({}, $.fn.progress.settings),
+
+        className       = settings.className,
+        metadata        = settings.metadata,
+        namespace       = settings.namespace,
+        selector        = settings.selector,
+        error           = settings.error,
+
+        eventNamespace  = '.' + namespace,
+        moduleNamespace = 'module-' + namespace,
+
+        $module         = $(this),
+        $bar            = $(this).find(selector.bar),
+        $progress       = $(this).find(selector.progress),
+        $label          = $(this).find(selector.label),
+
+        element         = this,
+        instance        = $module.data(moduleNamespace),
+        module
+      ;
+
+      module = {
+
+        initialize: function() {
+          module.debug('Initializing progress', settings);
+          module.read.metadata();
+          module.set.initials();
+          module.instantiate();
+        },
+
+        instantiate: function() {
+          module.verbose('Storing instance of progress', module);
+          instance = module;
+          $module
+            .data(moduleNamespace, module)
+          ;
+        },
+
+        destroy: function() {
+          module.verbose('Destroying previous dropdown for', $module);
+          $module
+            .removeData(moduleNamespace)
+          ;
+          instance = undefined;
+        },
+
+        reset: function() {
+          module.set.percent(0);
+        },
+
+        complete: function() {
+          if(module.percent === undefined || module.percent < 100) {
+            module.set.percent(100);
+          }
+        },
+
+        read: {
+          metadata: function() {
+            if( $module.data(metadata.percent) ) {
+              module.verbose('Current percent value set from metadata');
+              module.percent = $module.data(metadata.percent);
+            }
+            if( $module.data(metadata.total) ) {
+              module.verbose('Total value set from metadata');
+              module.total = $module.data(metadata.total);
+            }
+            if( $module.data(metadata.value) ) {
+              module.verbose('Current value set from metadata');
+              module.value = $module.data(metadata.value);
+            }
+          },
+          currentValue: function() {
+            return (module.value !== undefined)
+              ? module.value
+              : false
+            ;
+          }
+        },
+
+        increment: function(incrementValue) {
+          var
+            total          = module.total || false,
+            edgeValue,
+            startValue,
+            newValue
+          ;
+          if(total) {
+            startValue     = module.value || 0;
+            incrementValue = incrementValue || 1;
+            newValue       = startValue + incrementValue;
+            edgeValue      = module.total;
+            module.debug('Incrementing value by', incrementValue, startValue, edgeValue);
+            if(newValue > edgeValue ) {
+              module.debug('Value cannot increment above total', edgeValue);
+              newValue = edgeValue;
+            }
+            module.set.progress(newValue);
+          }
+          else {
+            startValue     = module.percent || 0;
+            incrementValue = incrementValue || module.get.randomValue();
+            newValue       = startValue + incrementValue;
+            edgeValue      = 100;
+            module.debug('Incrementing percentage by', incrementValue, startValue);
+            if(newValue > edgeValue ) {
+              module.debug('Value cannot increment above 100 percent');
+              newValue = edgeValue;
+            }
+            module.set.progress(newValue);
+          }
+        },
+        decrement: function(decrementValue) {
+          var
+            total     = module.total || false,
+            edgeValue = 0,
+            startValue,
+            newValue
+          ;
+          if(total) {
+            startValue     =  module.value   || 0;
+            decrementValue =  decrementValue || 1;
+            newValue       =  startValue - decrementValue;
+            module.debug('Decrementing value by', decrementValue, startValue);
+          }
+          else {
+            startValue     =  module.percent || 0;
+            decrementValue =  decrementValue || module.get.randomValue();
+            newValue       =  startValue - decrementValue;
+            module.debug('Decrementing percentage by', decrementValue, startValue);
+          }
+
+          if(newValue < edgeValue) {
+            module.debug('Value cannot decrement below 0');
+            newValue = 0;
+          }
+          module.set.progress(newValue);
+        },
+
+        get: {
+          text: function(templateText) {
+            var
+              value   = module.value || 0,
+              total   = module.total || 0,
+              percent = module.percent || 0
+            ;
+            templateText = templateText || '';
+            templateText = templateText
+              .replace('{value}', value)
+              .replace('{total}', total)
+              .replace('{percent}', percent)
+            ;
+            module.debug('Adding variables to progress bar text', templateText);
+            return templateText;
+          },
+          randomValue: function() {
+            module.debug('Generating random increment percentage');
+            return Math.floor((Math.random() * settings.random.max) + settings.random.min);
+          },
+          percent: function() {
+            return module.percent || 0;
+          },
+          value: function() {
+            return module.value || false;
+          },
+          total: function() {
+            return module.total || false;
+          }
+        },
+
+        is: {
+          success: function() {
+            return $module.hasClass(className.success);
+          },
+          warning: function() {
+            return $module.hasClass(className.warning);
+          },
+          error: function() {
+            return $module.hasClass(className.error);
+          }
+        },
+
+        remove: {
+          active: function() {
+            module.verbose('Removing active state');
+            $module.removeClass(className.active);
+          },
+          success: function() {
+            module.verbose('Removing success state');
+            $module.removeClass(className.success);
+          },
+          warning: function() {
+            module.verbose('Removing warning state');
+            $module.removeClass(className.warning);
+          },
+          error: function() {
+            module.verbose('Removing error state');
+            $module.removeClass(className.error);
+          }
+        },
+
+        set: {
+          barWidth: function(value) {
+            if(value > 100) {
+              module.error(error.tooHigh, value);
+            }
+            $bar
+              .css('width', value + '%')
+            ;
+          },
+          initials: function() {
+            if(settings.value) {
+              module.verbose('Current value set in settings', settings.value);
+              module.value = settings.value;
+            }
+            if(settings.total) {
+              module.verbose('Current total set in settings', settings.total);
+              module.total = settings.total;
+            }
+            if(settings.percent) {
+              module.verbose('Current percent set in settings', settings.percent);
+              module.percent = settings.percent;
+            }
+            if(module.percent) {
+              module.set.percent(module.percent);
+            }
+            else if(module.value) {
+              module.set.progress(module.value);
+            }
+          },
+          percent: function(percent) {
+            percent = (typeof percent == 'string')
+              ? +(percent.replace('%', ''))
+              : percent
+            ;
+            if(percent > 0 && percent < 1) {
+              module.verbose('Module percentage passed as decimal, converting');
+              percent = percent * 100;
+            }
+            // round percentage
+            if(settings.precision === 0) {
+              percent = Math.round(percent);
+            }
+            else {
+              percent = Math.round(percent * (10 * settings.precision) / (10 * settings.precision) );
+            }
+            module.percent = percent;
+            if(module.total) {
+              module.value = Math.round( (percent / 100) * module.total);
+            }
+            module.set.barWidth(percent);
+            module.set.barLabel();
+            if(percent === 100) {
+              if(settings.autoSuccess && !(module.is.warning() || module.is.error())) {
+                module.set.success();
+                module.debug('Automatically triggering success at 100%');
+              }
+              else {
+                module.remove.active();
+              }
+            }
+            else {
+              module.set.active();
+            }
+            $.proxy(settings.onChange, element)(percent, module.value, module.total);
+          },
+          label: function(text) {
+            text = text || '';
+            if(text) {
+              text = module.get.text(text);
+              module.debug('Setting label to text', text);
+              $label.text(text);
+            }
+          },
+          barLabel: function(text) {
+            if(text !== undefined) {
+              $progress.text( module.get.text(text) );
+            }
+            else if(settings.label == 'ratio' && module.total) {
+              module.debug('Adding ratio to bar label');
+              $progress.text( module.get.text(settings.text.ratio) );
+            }
+            else if(settings.label == 'percent') {
+              module.debug('Adding percentage to bar label');
+              $progress.text( module.get.text(settings.text.percent) );
+            }
+          },
+          active: function(text) {
+            text = text || settings.text.active;
+            module.debug('Setting active state');
+            if(settings.showActivity) {
+              $module.addClass(className.active);
+            }
+            module.remove.warning();
+            module.remove.error();
+            module.remove.success();
+            if(text) {
+              module.set.label(text);
+            }
+            $.proxy(settings.onActive, element)(module.value, module.total);
+          },
+          success : function(text) {
+            text = text || settings.text.success;
+            module.debug('Setting success state');
+            $module.addClass(className.success);
+            module.remove.active();
+            module.remove.warning();
+            module.remove.error();
+            module.complete();
+            if(text) {
+              module.set.label(text);
+            }
+            $.proxy(settings.onSuccess, element)(module.total);
+          },
+          warning : function(text) {
+            text = text || settings.text.warning;
+            module.debug('Setting warning state');
+            $module.addClass(className.warning);
+            module.remove.active();
+            module.remove.success();
+            module.remove.error();
+            module.complete();
+            if(text) {
+              module.set.label(text);
+            }
+            $.proxy(settings.onWarning, element)(module.value, module.total);
+          },
+          error : function(text) {
+            text = text || settings.text.error;
+            module.debug('Setting error state');
+            $module.addClass(className.error);
+            module.remove.active();
+            module.remove.success();
+            module.remove.warning();
+            module.complete();
+            if(text) {
+              module.set.label(text);
+            }
+            $.proxy(settings.onError, element)(module.value, module.total);
+          },
+          total: function(totalValue) {
+            module.total = totalValue;
+          },
+          progress: function(value) {
+            var
+              numericValue = (typeof value === 'string')
+                ? (value.replace(/[^\d.]/g, '') !== '')
+                  ? +(value.replace(/[^\d.]/g, ''))
+                  : false
+                : value,
+              percentComplete
+            ;
+            if(!numericValue) {
+              module.error(error.nonNumeric);
+            }
+            if(module.total) {
+              module.value    = numericValue;
+              percentComplete = (numericValue / module.total) * 100;
+              module.debug('Calculating percent complete from total', percentComplete);
+              module.set.percent( percentComplete );
+            }
+            else {
+              percentComplete = numericValue;
+              module.debug('Setting value to exact percentage value', percentComplete);
+              module.set.percent( percentComplete );
+            }
+          }
+        },
+
+        setting: function(name, value) {
+          module.debug('Changing setting', name, value);
+          if( $.isPlainObject(name) ) {
+            $.extend(true, settings, name);
+          }
+          else if(value !== undefined) {
+            settings[name] = value;
+          }
+          else {
+            return settings[name];
+          }
+        },
+        internal: function(name, value) {
+          if( $.isPlainObject(name) ) {
+            $.extend(true, module, name);
+          }
+          else if(value !== undefined) {
+            module[name] = value;
+          }
+          else {
+            return module[name];
+          }
+        },
+        debug: function() {
+          if(settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.debug.apply(console, arguments);
+            }
+          }
+        },
+        verbose: function() {
+          if(settings.verbose && settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.verbose.apply(console, arguments);
+            }
+          }
+        },
+        error: function() {
+          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
+          module.error.apply(console, arguments);
+        },
+        performance: {
+          log: function(message) {
+            var
+              currentTime,
+              executionTime,
+              previousTime
+            ;
+            if(settings.performance) {
+              currentTime   = new Date().getTime();
+              previousTime  = time || currentTime;
+              executionTime = currentTime - previousTime;
+              time          = currentTime;
+              performance.push({
+                'Name'           : message[0],
+                'Arguments'      : [].slice.call(message, 1) || '',
+                'Element'        : element,
+                'Execution Time' : executionTime
+              });
+            }
+            clearTimeout(module.performance.timer);
+            module.performance.timer = setTimeout(module.performance.display, 100);
+          },
+          display: function() {
+            var
+              title = settings.name + ':',
+              totalTime = 0
+            ;
+            time = false;
+            clearTimeout(module.performance.timer);
+            $.each(performance, function(index, data) {
+              totalTime += data['Execution Time'];
+            });
+            title += ' ' + totalTime + 'ms';
+            if(moduleSelector) {
+              title += ' \'' + moduleSelector + '\'';
+            }
+            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
+              console.groupCollapsed(title);
+              if(console.table) {
+                console.table(performance);
+              }
+              else {
+                $.each(performance, function(index, data) {
+                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
+                });
+              }
+              console.groupEnd();
+            }
+            performance = [];
+          }
+        },
+        invoke: function(query, passedArguments, context) {
+          var
+            object = instance,
+            maxDepth,
+            found,
+            response
+          ;
+          passedArguments = passedArguments || queryArguments;
+          context         = element         || context;
+          if(typeof query == 'string' && object !== undefined) {
+            query    = query.split(/[\. ]/);
+            maxDepth = query.length - 1;
+            $.each(query, function(depth, value) {
+              var camelCaseValue = (depth != maxDepth)
+                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
+                : query
+              ;
+              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
+                object = object[camelCaseValue];
+              }
+              else if( object[camelCaseValue] !== undefined ) {
+                found = object[camelCaseValue];
+                return false;
+              }
+              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
+                object = object[value];
+              }
+              else if( object[value] !== undefined ) {
+                found = object[value];
+                return false;
+              }
+              else {
+                module.error(error.method, query);
+                return false;
+              }
+            });
+          }
+          if ( $.isFunction( found ) ) {
+            response = found.apply(context, passedArguments);
+          }
+          else if(found !== undefined) {
+            response = found;
+          }
+          if($.isArray(returnedValue)) {
+            returnedValue.push(response);
+          }
+          else if(returnedValue !== undefined) {
+            returnedValue = [returnedValue, response];
+          }
+          else if(response !== undefined) {
+            returnedValue = response;
+          }
+          return found;
+        }
+      };
+
+      if(methodInvoked) {
+        if(instance === undefined) {
+          module.initialize();
+        }
+        module.invoke(query);
+      }
+      else {
+        if(instance !== undefined) {
+          module.destroy();
+        }
+        module.initialize();
+      }
+    })
+  ;
+
+  return (returnedValue !== undefined)
+    ? returnedValue
+    : this
+  ;
+};
+
+$.fn.progress.settings = {
+
+  name         : 'Progress',
+  namespace    : 'progress',
+
+  debug        : false,
+  verbose      : true,
+  performance  : true,
+
+  random       : {
+    min : 2,
+    max : 5
+  },
+
+  autoSuccess  : true,
+  showActivity : true,
+
+  label        : 'percent',
+  precision    : 1,
+
+  percent      : false,
+  total        : false,
+  value        : false,
+
+  onChange     : function(percent, value, total){},
+  onSuccess    : function(total){},
+  onActive     : function(value, total){},
+  onError      : function(value, total){},
+  onWarning    : function(value, total){},
+
+  error    : {
+    method     : 'The method you called is not defined.',
+    nonNumeric : 'Progress value is non numeric'
+  },
+
+  regExp: {
+    variable: /\{\$*[A-z0-9]+\}/g
+  },
+
+  metadata: {
+    percent : 'percent',
+    total   : 'total',
+    value   : 'value'
+  },
+
+  selector : {
+    bar      : '> .bar',
+    label    : '> .label',
+    progress : '.bar > .progress'
+  },
+
+  text : {
+    active  : false,
+    error   : false,
+    success : false,
+    warning : false,
+    percent : '{percent}%',
+    ratio   : '{value} of {total}'
+  },
+
+  className : {
+    active  : 'active',
+    error   : 'error',
+    success : 'success',
+    warning : 'warning'
+  }
+
+};
+
+
+})( jQuery, window , document );
+/*
+ * # Semantic - Nag
+ * http://github.com/semantic-org/semantic-ui/
+ *
+ *
+ * Copyright 2014 Contributor
+ * Released under the MIT license
+ * http://opensource.org/licenses/MIT
+ *
+ */
+
+;(function ($, window, document, undefined) {
+
+"use strict";
+
+$.fn.nag = function(parameters) {
+  var
+    $allModules    = $(this),
+    moduleSelector = $allModules.selector || '',
+
+    time           = new Date().getTime(),
+    performance    = [],
+
+    query          = arguments[0],
+    methodInvoked  = (typeof query == 'string'),
+    queryArguments = [].slice.call(arguments, 1),
+    returnedValue
+  ;
+  $allModules
+    .each(function() {
+      var
+        settings          = ( $.isPlainObject(parameters) )
+          ? $.extend(true, {}, $.fn.nag.settings, parameters)
+          : $.extend({}, $.fn.nag.settings),
+
+        className       = settings.className,
+        selector        = settings.selector,
+        error           = settings.error,
+        namespace       = settings.namespace,
+
+        eventNamespace  = '.' + namespace,
+        moduleNamespace = namespace + '-module',
+
+        $module         = $(this),
+
+        $close          = $module.find(selector.close),
+        $context        = (settings.context)
+          ? $(settings.context)
+          : $('body'),
+
+        element         = this,
+        instance        = $module.data(moduleNamespace),
+
+        moduleOffset,
+        moduleHeight,
+
+        contextWidth,
+        contextHeight,
+        contextOffset,
+
+        yOffset,
+        yPosition,
+
+        timer,
+        module,
+
+        requestAnimationFrame = window.requestAnimationFrame
+          || window.mozRequestAnimationFrame
+          || window.webkitRequestAnimationFrame
+          || window.msRequestAnimationFrame
+          || function(callback) { setTimeout(callback, 0); }
+      ;
+      module = {
+
+        initialize: function() {
+          module.verbose('Initializing element');
+
+          $module
+            .data(moduleNamespace, module)
+          ;
+          $close
+            .on('click' + eventNamespace, module.dismiss)
+          ;
+
+          if(settings.detachable && $module.parent()[0] !== $context[0]) {
+            $module
+              .detach()
+              .prependTo($context)
+            ;
+          }
+
+          if(settings.displayTime > 0) {
+            setTimeout(module.hide, settings.displayTime);
+          }
+          module.show();
+        },
+
+        destroy: function() {
+          module.verbose('Destroying instance');
+          $module
+            .removeData(moduleNamespace)
+            .off(eventNamespace)
+          ;
+        },
+
+        show: function() {
+          if( module.should.show() && !$module.is(':visible') ) {
+            module.debug('Showing nag', settings.animation.show);
+            if(settings.animation.show == 'fade') {
+              $module
+                .fadeIn(settings.duration, settings.easing)
+              ;
+            }
+            else {
+              $module
+                .slideDown(settings.duration, settings.easing)
+              ;
+            }
+          }
+        },
+
+        hide: function() {
+          module.debug('Showing nag', settings.animation.hide);
+          if(settings.animation.show == 'fade') {
+            $module
+              .fadeIn(settings.duration, settings.easing)
+            ;
+          }
+          else {
+            $module
+              .slideUp(settings.duration, settings.easing)
+            ;
+          }
+        },
+
+        onHide: function() {
+          module.debug('Removing nag', settings.animation.hide);
+          $module.remove();
+          if (settings.onHide) {
+            settings.onHide();
+          }
+        },
+
+        dismiss: function(event) {
+          if(settings.storageMethod) {
+            module.storage.set(settings.key, settings.value);
+          }
+          module.hide();
+          event.stopImmediatePropagation();
+          event.preventDefault();
+        },
+
+        should: {
+          show: function() {
+            if(settings.persist) {
+              module.debug('Persistent nag is set, can show nag');
+              return true;
+            }
+            if( module.storage.get(settings.key) != settings.value.toString() ) {
+              module.debug('Stored value is not set, can show nag', module.storage.get(settings.key));
+              return true;
+            }
+            module.debug('Stored value is set, cannot show nag', module.storage.get(settings.key));
+            return false;
+          }
+        },
+
+        get: {
+          storageOptions: function() {
+            var
+              options = {}
+            ;
+            if(settings.expires) {
+              options.expires = settings.expires;
+            }
+            if(settings.domain) {
+              options.domain = settings.domain;
+            }
+            if(settings.path) {
+              options.path = settings.path;
+            }
+            return options;
+          }
+        },
+
+        clear: function() {
+          module.storage.remove(settings.key);
+        },
+
+        storage: {
+          set: function(key, value) {
+            var
+              options = module.get.storageOptions()
+            ;
+            if(settings.storageMethod == 'localstorage' && window.localStorage !== undefined) {
+              window.localStorage.setItem(key, value);
+              module.debug('Value stored using local storage', key, value);
+            }
+            else if($.cookie !== undefined) {
+              $.cookie(key, value, options);
+              module.debug('Value stored using cookie', key, value, options);
+            }
+            else {
+              module.error(error.noCookieStorage);
+              return;
+            }
+          },
+          get: function(key, value) {
+            var
+              storedValue
+            ;
+            if(settings.storageMethod == 'localstorage' && window.localStorage !== undefined) {
+              storedValue = window.localStorage.getItem(key);
+            }
+            // get by cookie
+            else if($.cookie !== undefined) {
+              storedValue = $.cookie(key);
+            }
+            else {
+              module.error(error.noCookieStorage);
+            }
+            if(storedValue == 'undefined' || storedValue == 'null' || storedValue === undefined || storedValue === null) {
+              storedValue = undefined;
+            }
+            return storedValue;
+          },
+          remove: function(key) {
+            var
+              options = module.get.storageOptions()
+            ;
+            if(settings.storageMethod == 'local' && window.store !== undefined) {
+              window.localStorage.removeItem(key);
+            }
+            // store by cookie
+            else if($.cookie !== undefined) {
+              $.removeCookie(key, options);
+            }
+            else {
+              module.error(error.noStorage);
+            }
+          }
+        },
+
+        setting: function(name, value) {
+          module.debug('Changing setting', name, value);
+          if( $.isPlainObject(name) ) {
+            $.extend(true, settings, name);
+          }
+          else if(value !== undefined) {
+            settings[name] = value;
+          }
+          else {
+            return settings[name];
+          }
+        },
+        internal: function(name, value) {
+          if( $.isPlainObject(name) ) {
+            $.extend(true, module, name);
+          }
+          else if(value !== undefined) {
+            module[name] = value;
+          }
+          else {
+            return module[name];
+          }
+        },
+        debug: function() {
+          if(settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.debug.apply(console, arguments);
+            }
+          }
+        },
+        verbose: function() {
+          if(settings.verbose && settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.verbose.apply(console, arguments);
+            }
+          }
+        },
+        error: function() {
+          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
+          module.error.apply(console, arguments);
+        },
+        performance: {
+          log: function(message) {
+            var
+              currentTime,
+              executionTime,
+              previousTime
+            ;
+            if(settings.performance) {
+              currentTime   = new Date().getTime();
+              previousTime  = time || currentTime;
+              executionTime = currentTime - previousTime;
+              time          = currentTime;
+              performance.push({
+                'Name'           : message[0],
+                'Arguments'      : [].slice.call(message, 1) || '',
+                'Element'        : element,
+                'Execution Time' : executionTime
+              });
+            }
+            clearTimeout(module.performance.timer);
+            module.performance.timer = setTimeout(module.performance.display, 100);
+          },
+          display: function() {
+            var
+              title = settings.name + ':',
+              totalTime = 0
+            ;
+            time = false;
+            clearTimeout(module.performance.timer);
+            $.each(performance, function(index, data) {
+              totalTime += data['Execution Time'];
+            });
+            title += ' ' + totalTime + 'ms';
+            if(moduleSelector) {
+              title += ' \'' + moduleSelector + '\'';
+            }
+            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
+              console.groupCollapsed(title);
+              if(console.table) {
+                console.table(performance);
+              }
+              else {
+                $.each(performance, function(index, data) {
+                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
+                });
+              }
+              console.groupEnd();
+            }
+            performance = [];
+          }
+        },
+        invoke: function(query, passedArguments, context) {
+          var
+            object = instance,
+            maxDepth,
+            found,
+            response
+          ;
+          passedArguments = passedArguments || queryArguments;
+          context         = element         || context;
+          if(typeof query == 'string' && object !== undefined) {
+            query    = query.split(/[\. ]/);
+            maxDepth = query.length - 1;
+            $.each(query, function(depth, value) {
+              var camelCaseValue = (depth != maxDepth)
+                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
+                : query
+              ;
+              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
+                object = object[camelCaseValue];
+              }
+              else if( object[camelCaseValue] !== undefined ) {
+                found = object[camelCaseValue];
+                return false;
+              }
+              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
+                object = object[value];
+              }
+              else if( object[value] !== undefined ) {
+                found = object[value];
+                return false;
+              }
+              else {
+                module.error(error.method, query);
+                return false;
+              }
+            });
+          }
+          if ( $.isFunction( found ) ) {
+            response = found.apply(context, passedArguments);
+          }
+          else if(found !== undefined) {
+            response = found;
+          }
+          if($.isArray(returnedValue)) {
+            returnedValue.push(response);
+          }
+          else if(returnedValue !== undefined) {
+            returnedValue = [returnedValue, response];
+          }
+          else if(response !== undefined) {
+            returnedValue = response;
+          }
+          return found;
+        }
+      };
+
+      if(methodInvoked) {
+        if(instance === undefined) {
+          module.initialize();
+        }
+        module.invoke(query);
+      }
+      else {
+        if(instance !== undefined) {
+          module.destroy();
+        }
+        module.initialize();
+      }
+    })
+  ;
+
+  return (returnedValue !== undefined)
+    ? returnedValue
+    : this
+  ;
+};
+
+$.fn.nag.settings = {
+
+  name        : 'Nag',
+
+  debug       : false,
+  verbose     : true,
+  performance : true,
+
+  namespace   : 'Nag',
+
+  // allows cookie to be overriden
+  persist     : false,
+
+  // set to zero to require manually dismissal, otherwise hides on its own
+  displayTime : 0,
+
+  animation   : {
+    show : 'slide',
+    hide : 'slide'
+  },
+
+  context       : false,
+  detachable    : false,
+
+  expires       : 30,
+  domain        : false,
+  path          : '/',
+
+  // type of storage to use
+  storageMethod : 'cookie',
+
+  // value to store in dismissed localstorage/cookie
+  key           : 'nag',
+  value         : 'dismiss',
+
+  error: {
+    noStorage : 'Neither $.cookie or store is defined. A storage solution is required for storing state',
+    method    : 'The method you called is not defined.'
+  },
+
+  className     : {
+    bottom : 'bottom',
+    fixed  : 'fixed'
+  },
+
+  selector      : {
+    close : '.close.icon'
+  },
+
+  speed         : 500,
+  easing        : 'easeOutQuad',
+
+  onHide: function() {}
+
+};
+
+})( jQuery, window , document );
+
+/*! jquery.cookie v1.4.1 | MIT */
+!function(a){"function"==typeof define&&define.amd?define(["jquery"],a):"object"==typeof exports?a(require("jquery")):a(jQuery)}(function(a){function b(a){return h.raw?a:encodeURIComponent(a)}function c(a){return h.raw?a:decodeURIComponent(a)}function d(a){return b(h.json?JSON.stringify(a):String(a))}function e(a){0===a.indexOf('"')&&(a=a.slice(1,-1).replace(/\\"/g,'"').replace(/\\\\/g,"\\"));try{return a=decodeURIComponent(a.replace(g," ")),h.json?JSON.parse(a):a}catch(b){}}function f(b,c){var d=h.raw?b:e(b);return a.isFunction(c)?c(d):d}var g=/\+/g,h=a.cookie=function(e,g,i){if(void 0!==g&&!a.isFunction(g)){if(i=a.extend({},h.defaults,i),"number"==typeof i.expires){var j=i.expires,k=i.expires=new Date;k.setTime(+k+864e5*j)}return document.cookie=[b(e),"=",d(g),i.expires?"; expires="+i.expires.toUTCString():"",i.path?"; path="+i.path:"",i.domain?"; domain="+i.domain:"",i.secure?"; secure":""].join("")}for(var l=e?void 0:{},m=document.cookie?document.cookie.split("; "):[],n=0,o=m.length;o>n;n++){var p=m[n].split("="),q=c(p.shift()),r=p.join("=");if(e&&e===q){l=f(r,g);break}e||void 0===(r=f(r))||(l[q]=r)}return l};h.defaults={},a.removeCookie=function(b,c){return void 0===a.cookie(b)?!1:(a.cookie(b,"",a.extend({},c,{expires:-1})),!a.cookie(b))}});
+/*
+ * # Semantic - Shape
+ * http://github.com/semantic-org/semantic-ui/
+ *
+ *
+ * Copyright 2014 Contributor
+ * Released under the MIT license
+ * http://opensource.org/licenses/MIT
+ *
+ */
+
+;(function ( $, window, document, undefined ) {
+
+"use strict";
+
+$.fn.shape = function(parameters) {
+  var
+    $allModules     = $(this),
+    $body           = $('body'),
+
+    time            = new Date().getTime(),
+    performance     = [],
+
+    query           = arguments[0],
+    methodInvoked   = (typeof query == 'string'),
+    queryArguments  = [].slice.call(arguments, 1),
+
+    requestAnimationFrame = window.requestAnimationFrame
+      || window.mozRequestAnimationFrame
+      || window.webkitRequestAnimationFrame
+      || window.msRequestAnimationFrame
+      || function(callback) { setTimeout(callback, 0); },
+
+    returnedValue
+  ;
+
+  $allModules
+    .each(function() {
+      var
+        moduleSelector  = $allModules.selector || '',
+        settings        = $.extend(true, {}, $.fn.shape.settings, parameters),
+
+        // internal aliases
+        namespace     = settings.namespace,
+        selector      = settings.selector,
+        error         = settings.error,
+        className     = settings.className,
+
+        // define namespaces for modules
+        eventNamespace  = '.' + namespace,
+        moduleNamespace = 'module-' + namespace,
+
+        // selector cache
+        $module       = $(this),
+        $sides        = $module.find(selector.sides),
+        $side         = $module.find(selector.side),
+
+        // private variables
+        nextIndex = false,
+        $activeSide,
+        $nextSide,
+
+        // standard module
+        element       = this,
+        instance      = $module.data(moduleNamespace),
+        module
+      ;
+
+      module = {
+
+        initialize: function() {
+          module.verbose('Initializing module for', element);
+          module.set.defaultSide();
+          module.instantiate();
+        },
+
+        instantiate: function() {
+          module.verbose('Storing instance of module', module);
+          instance = module;
+          $module
+            .data(moduleNamespace, instance)
+          ;
+        },
+
+        destroy: function() {
+          module.verbose('Destroying previous module for', element);
+          $module
+            .removeData(moduleNamespace)
+            .off(eventNamespace)
+          ;
+        },
+
+        refresh: function() {
+          module.verbose('Refreshing selector cache for', element);
+          $module = $(element);
+          $sides  = $(this).find(selector.shape);
+          $side   = $(this).find(selector.side);
+        },
+
+        repaint: function() {
+          module.verbose('Forcing repaint event');
+          var
+            shape          = $sides.get(0) || document.createElement('div'),
+            fakeAssignment = shape.offsetWidth
+          ;
+        },
+
+        animate: function(propertyObject, callback) {
+          module.verbose('Animating box with properties', propertyObject);
+          callback = callback || function(event) {
+            module.verbose('Executing animation callback');
+            if(event !== undefined) {
+              event.stopPropagation();
+            }
+            module.reset();
+            module.set.active();
+          };
+          $.proxy(settings.beforeChange, $nextSide[0])();
+          if(module.get.transitionEvent()) {
+            module.verbose('Starting CSS animation');
+            $module
+              .addClass(className.animating)
+            ;
+            $sides
+              .css(propertyObject)
+              .one(module.get.transitionEvent(), callback)
+            ;
+            module.set.duration(settings.duration);
+            requestAnimationFrame(function() {
+              $module
+                .addClass(className.animating)
+              ;
+              $activeSide
+                .addClass(className.hidden)
+              ;
+            });
+          }
+          else {
+            callback();
+          }
+        },
+
+        queue: function(method) {
+          module.debug('Queueing animation of', method);
+          $sides
+            .one(module.get.transitionEvent(), function() {
+              module.debug('Executing queued animation');
+              setTimeout(function(){
+                $module.shape(method);
+              }, 0);
+            })
+          ;
+        },
+
+        reset: function() {
+          module.verbose('Animating states reset');
+          $module
+            .removeClass(className.animating)
+            .attr('style', '')
+            .removeAttr('style')
+          ;
+          // removeAttr style does not consistently work in safari
+          $sides
+            .attr('style', '')
+            .removeAttr('style')
+          ;
+          $side
+            .attr('style', '')
+            .removeAttr('style')
+            .removeClass(className.hidden)
+          ;
+          $nextSide
+            .removeClass(className.animating)
+            .attr('style', '')
+            .removeAttr('style')
+          ;
+        },
+
+        is: {
+          complete: function() {
+            return ($side.filter('.' + className.active)[0] == $nextSide[0]);
+          },
+          animating: function() {
+            return $module.hasClass(className.animating);
+          }
+        },
+
+        set: {
+
+          defaultSide: function() {
+            $activeSide = $module.find('.' + settings.className.active);
+            $nextSide   = ( $activeSide.next(selector.side).size() > 0 )
+              ? $activeSide.next(selector.side)
+              : $module.find(selector.side).first()
+            ;
+            nextIndex = false;
+            module.verbose('Active side set to', $activeSide);
+            module.verbose('Next side set to', $nextSide);
+          },
+
+          duration: function(duration) {
+            duration = duration || settings.duration;
+            duration = (typeof duration == 'number')
+              ? duration + 'ms'
+              : duration
+            ;
+            module.verbose('Setting animation duration', duration);
+            $sides.add($side)
+              .css({
+                '-webkit-transition-duration': duration,
+                '-moz-transition-duration': duration,
+                '-ms-transition-duration': duration,
+                '-o-transition-duration': duration,
+                'transition-duration': duration
+              })
+            ;
+          },
+
+          stageSize: function() {
+            var
+              $clone      = $module.clone().addClass(className.loading),
+              $activeSide = $clone.find('.' + settings.className.active),
+              $nextSide   = (nextIndex)
+                ? $clone.find(selector.side).eq(nextIndex)
+                : ( $activeSide.next(selector.side).size() > 0 )
+                  ? $activeSide.next(selector.side)
+                  : $clone.find(selector.side).first(),
+              newSize = {}
+            ;
+            $activeSide.removeClass(className.active);
+            $nextSide.addClass(className.active);
+            $clone.insertAfter($module);
+            newSize = {
+              width  : $nextSide.outerWidth(),
+              height : $nextSide.outerHeight()
+            };
+            $clone.remove();
+            $module
+              .css(newSize)
+            ;
+            module.verbose('Resizing stage to fit new content', newSize);
+          },
+
+          nextSide: function(selector) {
+            nextIndex = selector;
+            $nextSide = $side.filter(selector);
+            nextIndex = $side.index($nextSide);
+            if($nextSide.size() === 0) {
+              module.set.defaultSide();
+              module.error(error.side);
+            }
+            module.verbose('Next side manually set to', $nextSide);
+          },
+
+          active: function() {
+            module.verbose('Setting new side to active', $nextSide);
+            $side
+              .removeClass(className.active)
+            ;
+            $nextSide
+              .addClass(className.active)
+            ;
+            $.proxy(settings.onChange, $nextSide[0])();
+            module.set.defaultSide();
+          }
+        },
+
+        flip: {
+
+          up: function() {
+            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
+              module.debug('Side already visible', $nextSide);
+              return;
+            }
+            if( !module.is.animating()) {
+              module.debug('Flipping up', $nextSide);
+              module.set.stageSize();
+              module.stage.above();
+              module.animate( module.get.transform.up() );
+            }
+            else {
+              module.queue('flip up');
+            }
+          },
+
+          down: function() {
+            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
+              module.debug('Side already visible', $nextSide);
+              return;
+            }
+            if( !module.is.animating()) {
+              module.debug('Flipping down', $nextSide);
+              module.set.stageSize();
+              module.stage.below();
+              module.animate( module.get.transform.down() );
+            }
+            else {
+              module.queue('flip down');
+            }
+          },
+
+          left: function() {
+            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
+              module.debug('Side already visible', $nextSide);
+              return;
+            }
+            if( !module.is.animating()) {
+              module.debug('Flipping left', $nextSide);
+              module.set.stageSize();
+              module.stage.left();
+              module.animate(module.get.transform.left() );
+            }
+            else {
+              module.queue('flip left');
+            }
+          },
+
+          right: function() {
+            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
+              module.debug('Side already visible', $nextSide);
+              return;
+            }
+            if( !module.is.animating()) {
+              module.debug('Flipping right', $nextSide);
+              module.set.stageSize();
+              module.stage.right();
+              module.animate(module.get.transform.right() );
+            }
+            else {
+              module.queue('flip right');
+            }
+          },
+
+          over: function() {
+            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
+              module.debug('Side already visible', $nextSide);
+              return;
+            }
+            if( !module.is.animating()) {
+              module.debug('Flipping over', $nextSide);
+              module.set.stageSize();
+              module.stage.behind();
+              module.animate(module.get.transform.over() );
+            }
+            else {
+              module.queue('flip over');
+            }
+          },
+
+          back: function() {
+            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
+              module.debug('Side already visible', $nextSide);
+              return;
+            }
+            if( !module.is.animating()) {
+              module.debug('Flipping back', $nextSide);
+              module.set.stageSize();
+              module.stage.behind();
+              module.animate(module.get.transform.back() );
+            }
+            else {
+              module.queue('flip back');
+            }
+          }
+
+        },
+
+        get: {
+
+          transform: {
+            up: function() {
+              var
+                translate = {
+                  y: -(($activeSide.outerHeight() - $nextSide.outerHeight()) / 2),
+                  z: -($activeSide.outerHeight() / 2)
+                }
+              ;
+              return {
+                transform: 'translateY(' + translate.y + 'px) translateZ('+ translate.z + 'px) rotateX(-90deg)'
+              };
+            },
+
+            down: function() {
+              var
+                translate = {
+                  y: -(($activeSide.outerHeight() - $nextSide.outerHeight()) / 2),
+                  z: -($activeSide.outerHeight() / 2)
+                }
+              ;
+              return {
+                transform: 'translateY(' + translate.y + 'px) translateZ('+ translate.z + 'px) rotateX(90deg)'
+              };
+            },
+
+            left: function() {
+              var
+                translate = {
+                  x : -(($activeSide.outerWidth() - $nextSide.outerWidth()) / 2),
+                  z : -($activeSide.outerWidth() / 2)
+                }
+              ;
+              return {
+                transform: 'translateX(' + translate.x + 'px) translateZ(' + translate.z + 'px) rotateY(90deg)'
+              };
+            },
+
+            right: function() {
+              var
+                translate = {
+                  x : -(($activeSide.outerWidth() - $nextSide.outerWidth()) / 2),
+                  z : -($activeSide.outerWidth() / 2)
+                }
+              ;
+              return {
+                transform: 'translateX(' + translate.x + 'px) translateZ(' + translate.z + 'px) rotateY(-90deg)'
+              };
+            },
+
+            over: function() {
+              var
+                translate = {
+                  x : -(($activeSide.outerWidth() - $nextSide.outerWidth()) / 2)
+                }
+              ;
+              return {
+                transform: 'translateX(' + translate.x + 'px) rotateY(180deg)'
+              };
+            },
+
+            back: function() {
+              var
+                translate = {
+                  x : -(($activeSide.outerWidth() - $nextSide.outerWidth()) / 2)
+                }
+              ;
+              return {
+                transform: 'translateX(' + translate.x + 'px) rotateY(-180deg)'
+              };
+            }
+          },
+
+          transitionEvent: function() {
+            var
+              element     = document.createElement('element'),
+              transitions = {
+                'transition'       :'transitionend',
+                'OTransition'      :'oTransitionEnd',
+                'MozTransition'    :'transitionend',
+                'WebkitTransition' :'webkitTransitionEnd'
+              },
+              transition
+            ;
+            for(transition in transitions){
+              if( element.style[transition] !== undefined ){
+                return transitions[transition];
+              }
+            }
+          },
+
+          nextSide: function() {
+            return ( $activeSide.next(selector.side).size() > 0 )
+              ? $activeSide.next(selector.side)
+              : $module.find(selector.side).first()
+            ;
+          }
+
+        },
+
+        stage: {
+
+          above: function() {
+            var
+              box = {
+                origin : (($activeSide.outerHeight() - $nextSide.outerHeight()) / 2),
+                depth  : {
+                  active : ($nextSide.outerHeight() / 2),
+                  next   : ($activeSide.outerHeight() / 2)
+                }
+              }
+            ;
+            module.verbose('Setting the initial animation position as above', $nextSide, box);
+            $activeSide
+              .css({
+                'transform' : 'rotateY(0deg) translateZ(' + box.depth.active + 'px)'
+              })
+            ;
+            $nextSide
+              .addClass(className.animating)
+              .css({
+                'display'   : 'block',
+                'top'       : box.origin + 'px',
+                'transform' : 'rotateX(90deg) translateZ(' + box.depth.next + 'px)'
+              })
+            ;
+          },
+
+          below: function() {
+            var
+              box = {
+                origin : (($activeSide.outerHeight() - $nextSide.outerHeight()) / 2),
+                depth  : {
+                  active : ($nextSide.outerHeight() / 2),
+                  next   : ($activeSide.outerHeight() / 2)
+                }
+              }
+            ;
+            module.verbose('Setting the initial animation position as below', $nextSide, box);
+            $activeSide
+              .css({
+                'transform' : 'rotateY(0deg) translateZ(' + box.depth.active + 'px)'
+              })
+            ;
+            $nextSide
+              .addClass(className.animating)
+              .css({
+                'display'   : 'block',
+                'top'       : box.origin + 'px',
+                'transform' : 'rotateX(-90deg) translateZ(' + box.depth.next + 'px)'
+              })
+            ;
+          },
+
+          left: function() {
+            var
+              box = {
+                origin : ( ( $activeSide.outerWidth() - $nextSide.outerWidth() ) / 2),
+                depth  : {
+                  active : ($nextSide.outerWidth() / 2),
+                  next   : ($activeSide.outerWidth() / 2)
+                }
+              }
+            ;
+            module.verbose('Setting the initial animation position as left', $nextSide, box);
+            $activeSide
+              .css({
+                'transform' : 'rotateY(0deg) translateZ(' + box.depth.active + 'px)'
+              })
+            ;
+            $nextSide
+              .addClass(className.animating)
+              .css({
+                'display'   : 'block',
+                'left'      : box.origin + 'px',
+                'transform' : 'rotateY(-90deg) translateZ(' + box.depth.next + 'px)'
+              })
+            ;
+          },
+
+          right: function() {
+            var
+              box = {
+                origin : ( ( $activeSide.outerWidth() - $nextSide.outerWidth() ) / 2),
+                depth  : {
+                  active : ($nextSide.outerWidth() / 2),
+                  next   : ($activeSide.outerWidth() / 2)
+                }
+              }
+            ;
+            module.verbose('Setting the initial animation position as left', $nextSide, box);
+            $activeSide
+              .css({
+                'transform' : 'rotateY(0deg) translateZ(' + box.depth.active + 'px)'
+              })
+            ;
+            $nextSide
+              .addClass(className.animating)
+              .css({
+                'display'   : 'block',
+                'left'      : box.origin + 'px',
+                'transform' : 'rotateY(90deg) translateZ(' + box.depth.next + 'px)'
+              })
+            ;
+          },
+
+          behind: function() {
+            var
+              box = {
+                origin : ( ( $activeSide.outerWidth() - $nextSide.outerWidth() ) / 2),
+                depth  : {
+                  active : ($nextSide.outerWidth() / 2),
+                  next   : ($activeSide.outerWidth() / 2)
+                }
+              }
+            ;
+            module.verbose('Setting the initial animation position as behind', $nextSide, box);
+            $activeSide
+              .css({
+                'transform' : 'rotateY(0deg)'
+              })
+            ;
+            $nextSide
+              .addClass(className.animating)
+              .css({
+                'display'   : 'block',
+                'left'      : box.origin + 'px',
+                'transform' : 'rotateY(-180deg)'
+              })
+            ;
+          }
+        },
+        setting: function(name, value) {
+          module.debug('Changing setting', name, value);
+          if( $.isPlainObject(name) ) {
+            $.extend(true, settings, name);
+          }
+          else if(value !== undefined) {
+            settings[name] = value;
+          }
+          else {
+            return settings[name];
+          }
+        },
+        internal: function(name, value) {
+          if( $.isPlainObject(name) ) {
+            $.extend(true, module, name);
+          }
+          else if(value !== undefined) {
+            module[name] = value;
+          }
+          else {
+            return module[name];
+          }
+        },
+        debug: function() {
+          if(settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.debug.apply(console, arguments);
+            }
+          }
+        },
+        verbose: function() {
+          if(settings.verbose && settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.verbose.apply(console, arguments);
+            }
+          }
+        },
+        error: function() {
+          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
+          module.error.apply(console, arguments);
+        },
+        performance: {
+          log: function(message) {
+            var
+              currentTime,
+              executionTime,
+              previousTime
+            ;
+            if(settings.performance) {
+              currentTime   = new Date().getTime();
+              previousTime  = time || currentTime;
+              executionTime = currentTime - previousTime;
+              time          = currentTime;
+              performance.push({
+                'Name'           : message[0],
+                'Arguments'      : [].slice.call(message, 1) || '',
+                'Element'        : element,
+                'Execution Time' : executionTime
+              });
+            }
+            clearTimeout(module.performance.timer);
+            module.performance.timer = setTimeout(module.performance.display, 100);
+          },
+          display: function() {
+            var
+              title = settings.name + ':',
+              totalTime = 0
+            ;
+            time = false;
+            clearTimeout(module.performance.timer);
+            $.each(performance, function(index, data) {
+              totalTime += data['Execution Time'];
+            });
+            title += ' ' + totalTime + 'ms';
+            if(moduleSelector) {
+              title += ' \'' + moduleSelector + '\'';
+            }
+            if($allModules.size() > 1) {
+              title += ' ' + '(' + $allModules.size() + ')';
+            }
+            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
+              console.groupCollapsed(title);
+              if(console.table) {
+                console.table(performance);
+              }
+              else {
+                $.each(performance, function(index, data) {
+                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
+                });
+              }
+              console.groupEnd();
+            }
+            performance = [];
+          }
+        },
+        invoke: function(query, passedArguments, context) {
+          var
+            object = instance,
+            maxDepth,
+            found,
+            response
+          ;
+          passedArguments = passedArguments || queryArguments;
+          context         = element         || context;
+          if(typeof query == 'string' && object !== undefined) {
+            query    = query.split(/[\. ]/);
+            maxDepth = query.length - 1;
+            $.each(query, function(depth, value) {
+              var camelCaseValue = (depth != maxDepth)
+                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
+                : query
+              ;
+              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
+                object = object[camelCaseValue];
+              }
+              else if( object[camelCaseValue] !== undefined ) {
+                found = object[camelCaseValue];
+                return false;
+              }
+              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
+                object = object[value];
+              }
+              else if( object[value] !== undefined ) {
+                found = object[value];
+                return false;
+              }
+              else {
+                return false;
+              }
+            });
+          }
+          if ( $.isFunction( found ) ) {
+            response = found.apply(context, passedArguments);
+          }
+          else if(found !== undefined) {
+            response = found;
+          }
+          if($.isArray(returnedValue)) {
+            returnedValue.push(response);
+          }
+          else if(returnedValue !== undefined) {
+            returnedValue = [returnedValue, response];
+          }
+          else if(response !== undefined) {
+            returnedValue = response;
+          }
+          return found;
+        }
+      };
+
+      if(methodInvoked) {
+        if(instance === undefined) {
+          module.initialize();
+        }
+        module.invoke(query);
+      }
+      else {
+        if(instance !== undefined) {
+          module.destroy();
+        }
+        module.initialize();
+      }
+    })
+  ;
+
+  return (returnedValue !== undefined)
+    ? returnedValue
+    : this
+  ;
+};
+
+$.fn.shape.settings = {
+
+  // module info
+  name : 'Shape',
+
+  // debug content outputted to console
+  debug      : false,
+
+  // verbose debug output
+  verbose    : true,
+
+  // performance data output
+  performance: true,
+
+  // event namespace
+  namespace  : 'shape',
+
+  // callback occurs on side change
+  beforeChange : function() {},
+  onChange     : function() {},
+
+  // allow animation to same side
+  allowRepeats: false,
+
+  // animation duration
+  duration   : 700,
+
+  // possible errors
+  error: {
+    side   : 'You tried to switch to a side that does not exist.',
+    method : 'The method you called is not defined'
+  },
+
+  // classnames used
+  className   : {
+    animating : 'animating',
+    hidden    : 'hidden',
+    loading   : 'loading',
+    active    : 'active'
+  },
+
+  // selectors used
+  selector    : {
+    sides : '.sides',
+    side  : '.side'
+  }
+
+};
+
+
+})( jQuery, window , document );
+/*
  * # Semantic - Popup
  * http://github.com/jlukic/semantic-ui/
  *
@@ -6173,1374 +8135,7 @@ $.extend( $.easing, {
 })( jQuery, window , document );
 
 /*
- * # Semantic - Nag
- * http://github.com/semantic-org/semantic-ui/
- *
- *
- * Copyright 2014 Contributor
- * Released under the MIT license
- * http://opensource.org/licenses/MIT
- *
- */
-
-;(function ($, window, document, undefined) {
-
-"use strict";
-
-$.fn.nag = function(parameters) {
-  var
-    $allModules    = $(this),
-    moduleSelector = $allModules.selector || '',
-
-    time           = new Date().getTime(),
-    performance    = [],
-
-    query          = arguments[0],
-    methodInvoked  = (typeof query == 'string'),
-    queryArguments = [].slice.call(arguments, 1),
-    returnedValue
-  ;
-  $allModules
-    .each(function() {
-      var
-        settings          = ( $.isPlainObject(parameters) )
-          ? $.extend(true, {}, $.fn.nag.settings, parameters)
-          : $.extend({}, $.fn.nag.settings),
-
-        className       = settings.className,
-        selector        = settings.selector,
-        error           = settings.error,
-        namespace       = settings.namespace,
-
-        eventNamespace  = '.' + namespace,
-        moduleNamespace = namespace + '-module',
-
-        $module         = $(this),
-
-        $close          = $module.find(selector.close),
-        $context        = (settings.context)
-          ? $(settings.context)
-          : $('body'),
-
-        element         = this,
-        instance        = $module.data(moduleNamespace),
-
-        moduleOffset,
-        moduleHeight,
-
-        contextWidth,
-        contextHeight,
-        contextOffset,
-
-        yOffset,
-        yPosition,
-
-        timer,
-        module,
-
-        requestAnimationFrame = window.requestAnimationFrame
-          || window.mozRequestAnimationFrame
-          || window.webkitRequestAnimationFrame
-          || window.msRequestAnimationFrame
-          || function(callback) { setTimeout(callback, 0); }
-      ;
-      module = {
-
-        initialize: function() {
-          module.verbose('Initializing element');
-
-          $module
-            .data(moduleNamespace, module)
-          ;
-          $close
-            .on('click' + eventNamespace, module.dismiss)
-          ;
-
-          if(settings.detachable && $module.parent()[0] !== $context[0]) {
-            $module
-              .detach()
-              .prependTo($context)
-            ;
-          }
-
-          if(settings.displayTime > 0) {
-            setTimeout(module.hide, settings.displayTime);
-          }
-          module.show();
-        },
-
-        destroy: function() {
-          module.verbose('Destroying instance');
-          $module
-            .removeData(moduleNamespace)
-            .off(eventNamespace)
-          ;
-        },
-
-        show: function() {
-          if( module.should.show() && !$module.is(':visible') ) {
-            module.debug('Showing nag', settings.animation.show);
-            if(settings.animation.show == 'fade') {
-              $module
-                .fadeIn(settings.duration, settings.easing)
-              ;
-            }
-            else {
-              $module
-                .slideDown(settings.duration, settings.easing)
-              ;
-            }
-          }
-        },
-
-        hide: function() {
-          module.debug('Showing nag', settings.animation.hide);
-          if(settings.animation.show == 'fade') {
-            $module
-              .fadeIn(settings.duration, settings.easing)
-            ;
-          }
-          else {
-            $module
-              .slideUp(settings.duration, settings.easing)
-            ;
-          }
-        },
-
-        onHide: function() {
-          module.debug('Removing nag', settings.animation.hide);
-          $module.remove();
-          if (settings.onHide) {
-            settings.onHide();
-          }
-        },
-
-        dismiss: function(event) {
-          if(settings.storageMethod) {
-            module.storage.set(settings.key, settings.value);
-          }
-          module.hide();
-          event.stopImmediatePropagation();
-          event.preventDefault();
-        },
-
-        should: {
-          show: function() {
-            if(settings.persist) {
-              module.debug('Persistent nag is set, can show nag');
-              return true;
-            }
-            if( module.storage.get(settings.key) != settings.value.toString() ) {
-              module.debug('Stored value is not set, can show nag', module.storage.get(settings.key));
-              return true;
-            }
-            module.debug('Stored value is set, cannot show nag', module.storage.get(settings.key));
-            return false;
-          }
-        },
-
-        get: {
-          storageOptions: function() {
-            var
-              options = {}
-            ;
-            if(settings.expires) {
-              options.expires = settings.expires;
-            }
-            if(settings.domain) {
-              options.domain = settings.domain;
-            }
-            if(settings.path) {
-              options.path = settings.path;
-            }
-            return options;
-          }
-        },
-
-        clear: function() {
-          module.storage.remove(settings.key);
-        },
-
-        storage: {
-          set: function(key, value) {
-            var
-              options = module.get.storageOptions()
-            ;
-            if(settings.storageMethod == 'localstorage' && window.localStorage !== undefined) {
-              window.localStorage.setItem(key, value);
-              module.debug('Value stored using local storage', key, value);
-            }
-            else if($.cookie !== undefined) {
-              $.cookie(key, value, options);
-              module.debug('Value stored using cookie', key, value, options);
-            }
-            else {
-              module.error(error.noCookieStorage);
-              return;
-            }
-          },
-          get: function(key, value) {
-            var
-              storedValue
-            ;
-            if(settings.storageMethod == 'localstorage' && window.localStorage !== undefined) {
-              storedValue = window.localStorage.getItem(key);
-            }
-            // get by cookie
-            else if($.cookie !== undefined) {
-              storedValue = $.cookie(key);
-            }
-            else {
-              module.error(error.noCookieStorage);
-            }
-            if(storedValue == 'undefined' || storedValue == 'null' || storedValue === undefined || storedValue === null) {
-              storedValue = undefined;
-            }
-            return storedValue;
-          },
-          remove: function(key) {
-            var
-              options = module.get.storageOptions()
-            ;
-            if(settings.storageMethod == 'local' && window.store !== undefined) {
-              window.localStorage.removeItem(key);
-            }
-            // store by cookie
-            else if($.cookie !== undefined) {
-              $.removeCookie(key, options);
-            }
-            else {
-              module.error(error.noStorage);
-            }
-          }
-        },
-
-        setting: function(name, value) {
-          module.debug('Changing setting', name, value);
-          if( $.isPlainObject(name) ) {
-            $.extend(true, settings, name);
-          }
-          else if(value !== undefined) {
-            settings[name] = value;
-          }
-          else {
-            return settings[name];
-          }
-        },
-        internal: function(name, value) {
-          if( $.isPlainObject(name) ) {
-            $.extend(true, module, name);
-          }
-          else if(value !== undefined) {
-            module[name] = value;
-          }
-          else {
-            return module[name];
-          }
-        },
-        debug: function() {
-          if(settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.debug.apply(console, arguments);
-            }
-          }
-        },
-        verbose: function() {
-          if(settings.verbose && settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.verbose.apply(console, arguments);
-            }
-          }
-        },
-        error: function() {
-          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-          module.error.apply(console, arguments);
-        },
-        performance: {
-          log: function(message) {
-            var
-              currentTime,
-              executionTime,
-              previousTime
-            ;
-            if(settings.performance) {
-              currentTime   = new Date().getTime();
-              previousTime  = time || currentTime;
-              executionTime = currentTime - previousTime;
-              time          = currentTime;
-              performance.push({
-                'Name'           : message[0],
-                'Arguments'      : [].slice.call(message, 1) || '',
-                'Element'        : element,
-                'Execution Time' : executionTime
-              });
-            }
-            clearTimeout(module.performance.timer);
-            module.performance.timer = setTimeout(module.performance.display, 100);
-          },
-          display: function() {
-            var
-              title = settings.name + ':',
-              totalTime = 0
-            ;
-            time = false;
-            clearTimeout(module.performance.timer);
-            $.each(performance, function(index, data) {
-              totalTime += data['Execution Time'];
-            });
-            title += ' ' + totalTime + 'ms';
-            if(moduleSelector) {
-              title += ' \'' + moduleSelector + '\'';
-            }
-            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
-              console.groupCollapsed(title);
-              if(console.table) {
-                console.table(performance);
-              }
-              else {
-                $.each(performance, function(index, data) {
-                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
-                });
-              }
-              console.groupEnd();
-            }
-            performance = [];
-          }
-        },
-        invoke: function(query, passedArguments, context) {
-          var
-            object = instance,
-            maxDepth,
-            found,
-            response
-          ;
-          passedArguments = passedArguments || queryArguments;
-          context         = element         || context;
-          if(typeof query == 'string' && object !== undefined) {
-            query    = query.split(/[\. ]/);
-            maxDepth = query.length - 1;
-            $.each(query, function(depth, value) {
-              var camelCaseValue = (depth != maxDepth)
-                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                : query
-              ;
-              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
-                object = object[camelCaseValue];
-              }
-              else if( object[camelCaseValue] !== undefined ) {
-                found = object[camelCaseValue];
-                return false;
-              }
-              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
-                object = object[value];
-              }
-              else if( object[value] !== undefined ) {
-                found = object[value];
-                return false;
-              }
-              else {
-                module.error(error.method, query);
-                return false;
-              }
-            });
-          }
-          if ( $.isFunction( found ) ) {
-            response = found.apply(context, passedArguments);
-          }
-          else if(found !== undefined) {
-            response = found;
-          }
-          if($.isArray(returnedValue)) {
-            returnedValue.push(response);
-          }
-          else if(returnedValue !== undefined) {
-            returnedValue = [returnedValue, response];
-          }
-          else if(response !== undefined) {
-            returnedValue = response;
-          }
-          return found;
-        }
-      };
-
-      if(methodInvoked) {
-        if(instance === undefined) {
-          module.initialize();
-        }
-        module.invoke(query);
-      }
-      else {
-        if(instance !== undefined) {
-          module.destroy();
-        }
-        module.initialize();
-      }
-    })
-  ;
-
-  return (returnedValue !== undefined)
-    ? returnedValue
-    : this
-  ;
-};
-
-$.fn.nag.settings = {
-
-  name        : 'Nag',
-
-  debug       : false,
-  verbose     : true,
-  performance : true,
-
-  namespace   : 'Nag',
-
-  // allows cookie to be overriden
-  persist     : false,
-
-  // set to zero to require manually dismissal, otherwise hides on its own
-  displayTime : 0,
-
-  animation   : {
-    show : 'slide',
-    hide : 'slide'
-  },
-
-  context       : false,
-  detachable    : false,
-
-  expires       : 30,
-  domain        : false,
-  path          : '/',
-
-  // type of storage to use
-  storageMethod : 'cookie',
-
-  // value to store in dismissed localstorage/cookie
-  key           : 'nag',
-  value         : 'dismiss',
-
-  error: {
-    noStorage : 'Neither $.cookie or store is defined. A storage solution is required for storing state',
-    method    : 'The method you called is not defined.'
-  },
-
-  className     : {
-    bottom : 'bottom',
-    fixed  : 'fixed'
-  },
-
-  selector      : {
-    close : '.close.icon'
-  },
-
-  speed         : 500,
-  easing        : 'easeOutQuad',
-
-  onHide: function() {}
-
-};
-
-})( jQuery, window , document );
-
-/*! jquery.cookie v1.4.1 | MIT */
-!function(a){"function"==typeof define&&define.amd?define(["jquery"],a):"object"==typeof exports?a(require("jquery")):a(jQuery)}(function(a){function b(a){return h.raw?a:encodeURIComponent(a)}function c(a){return h.raw?a:decodeURIComponent(a)}function d(a){return b(h.json?JSON.stringify(a):String(a))}function e(a){0===a.indexOf('"')&&(a=a.slice(1,-1).replace(/\\"/g,'"').replace(/\\\\/g,"\\"));try{return a=decodeURIComponent(a.replace(g," ")),h.json?JSON.parse(a):a}catch(b){}}function f(b,c){var d=h.raw?b:e(b);return a.isFunction(c)?c(d):d}var g=/\+/g,h=a.cookie=function(e,g,i){if(void 0!==g&&!a.isFunction(g)){if(i=a.extend({},h.defaults,i),"number"==typeof i.expires){var j=i.expires,k=i.expires=new Date;k.setTime(+k+864e5*j)}return document.cookie=[b(e),"=",d(g),i.expires?"; expires="+i.expires.toUTCString():"",i.path?"; path="+i.path:"",i.domain?"; domain="+i.domain:"",i.secure?"; secure":""].join("")}for(var l=e?void 0:{},m=document.cookie?document.cookie.split("; "):[],n=0,o=m.length;o>n;n++){var p=m[n].split("="),q=c(p.shift()),r=p.join("=");if(e&&e===q){l=f(r,g);break}e||void 0===(r=f(r))||(l[q]=r)}return l};h.defaults={},a.removeCookie=function(b,c){return void 0===a.cookie(b)?!1:(a.cookie(b,"",a.extend({},c,{expires:-1})),!a.cookie(b))}});
-/*
- * # Semantic - Search
- * http://github.com/semantic-org/semantic-ui/
- *
- *
- * Copyright 2014 Contributor
- * Released under the MIT license
- * http://opensource.org/licenses/MIT
- *
- */
-
-;(function ($, window, document, undefined) {
-
-"use strict";
-
-$.fn.search = function(parameters) {
-  var
-    $allModules     = $(this),
-    moduleSelector  = $allModules.selector || '',
-
-    time            = new Date().getTime(),
-    performance     = [],
-
-    query           = arguments[0],
-    methodInvoked   = (typeof query == 'string'),
-    queryArguments  = [].slice.call(arguments, 1),
-    returnedValue
-  ;
-  $(this)
-    .each(function() {
-      var
-        settings        = $.extend(true, {}, $.fn.search.settings, parameters),
-
-        className       = settings.className,
-        selector        = settings.selector,
-        error           = settings.error,
-        namespace       = settings.namespace,
-
-        eventNamespace  = '.' + namespace,
-        moduleNamespace = namespace + '-module',
-
-        $module         = $(this),
-        $prompt         = $module.find(selector.prompt),
-        $searchButton   = $module.find(selector.searchButton),
-        $results        = $module.find(selector.results),
-        $result         = $module.find(selector.result),
-        $category       = $module.find(selector.category),
-
-        element         = this,
-        instance        = $module.data(moduleNamespace),
-
-        module
-      ;
-      module = {
-
-        initialize: function() {
-          module.verbose('Initializing module');
-          var
-            prompt = $prompt[0],
-            inputEvent   = (prompt !== undefined && prompt.oninput !== undefined)
-              ? 'input'
-              : (prompt !== undefined && prompt.onpropertychange !== undefined)
-                ? 'propertychange'
-                : 'keyup'
-          ;
-          if(settings.automatic) {
-            $prompt
-              .on(inputEvent + eventNamespace, module.search.throttle)
-            ;
-          }
-          $prompt
-            .on('focus' + eventNamespace, module.event.focus)
-            .on('blur' + eventNamespace, module.event.blur)
-            .on('keydown' + eventNamespace, module.handleKeyboard)
-          ;
-          $searchButton
-            .on('click' + eventNamespace, module.search.query)
-          ;
-          $results
-            .on('mousedown' + eventNamespace, module.event.mousedown)
-            .on('mouseup' + eventNamespace, module.event.mouseup)
-            .on('click' + eventNamespace, selector.result, module.results.select)
-          ;
-          module.instantiate();
-        },
-        instantiate: function() {
-          module.verbose('Storing instance of module', module);
-          instance = module;
-          $module
-            .data(moduleNamespace, module)
-          ;
-        },
-        destroy: function() {
-          module.verbose('Destroying instance');
-          $module
-            .removeData(moduleNamespace)
-          ;
-          $prompt
-            .off(eventNamespace)
-          ;
-          $searchButton
-            .off(eventNamespace)
-          ;
-          $results
-            .off(eventNamespace)
-          ;
-        },
-        event: {
-          focus: function() {
-            $module
-              .addClass(className.focus)
-            ;
-            clearTimeout(module.timer);
-            module.search.throttle();
-            if(module.has.minimum())  {
-              module.results.show();
-            }
-          },
-          mousedown: function() {
-            module.resultsClicked = true;
-          },
-          mouseup: function() {
-            module.resultsClicked = false;
-          },
-          blur: function(event) {
-            module.search.cancel();
-            $module
-              .removeClass(className.focus)
-            ;
-            if(!module.resultsClicked) {
-              module.timer = setTimeout(module.results.hide, settings.hideDelay);
-            }
-          }
-        },
-        handleKeyboard: function(event) {
-          var
-            // force latest jq dom
-            $result       = $module.find(selector.result),
-            $category     = $module.find(selector.category),
-            keyCode       = event.which,
-            keys          = {
-              backspace : 8,
-              enter     : 13,
-              escape    : 27,
-              upArrow   : 38,
-              downArrow : 40
-            },
-            activeClass  = className.active,
-            currentIndex = $result.index( $result.filter('.' + activeClass) ),
-            resultSize   = $result.size(),
-            newIndex
-          ;
-          // search shortcuts
-          if(keyCode == keys.escape) {
-            module.verbose('Escape key pressed, blurring search field');
-            $prompt
-              .trigger('blur')
-            ;
-          }
-          // result shortcuts
-          if($results.filter(':visible').size() > 0) {
-            if(keyCode == keys.enter) {
-              module.verbose('Enter key pressed, selecting active result');
-              if( $result.filter('.' + activeClass).size() > 0 ) {
-                $.proxy(module.results.select, $result.filter('.' + activeClass) )(event);
-                event.preventDefault();
-                return false;
-              }
-            }
-            else if(keyCode == keys.upArrow) {
-              module.verbose('Up key pressed, changing active result');
-              newIndex = (currentIndex - 1 < 0)
-                ? currentIndex
-                : currentIndex - 1
-              ;
-              $category
-                .removeClass(activeClass)
-              ;
-              $result
-                .removeClass(activeClass)
-                .eq(newIndex)
-                  .addClass(activeClass)
-                  .closest($category)
-                    .addClass(activeClass)
-              ;
-              event.preventDefault();
-            }
-            else if(keyCode == keys.downArrow) {
-              module.verbose('Down key pressed, changing active result');
-              newIndex = (currentIndex + 1 >= resultSize)
-                ? currentIndex
-                : currentIndex + 1
-              ;
-              $category
-                .removeClass(activeClass)
-              ;
-              $result
-                .removeClass(activeClass)
-                .eq(newIndex)
-                  .addClass(activeClass)
-                  .closest($category)
-                    .addClass(activeClass)
-              ;
-              event.preventDefault();
-            }
-          }
-          else {
-            // query shortcuts
-            if(keyCode == keys.enter) {
-              module.verbose('Enter key pressed, executing query');
-              module.search.query();
-              $searchButton
-                .addClass(className.down)
-              ;
-              $prompt
-                .one('keyup', function(){
-                  $searchButton
-                    .removeClass(className.down)
-                  ;
-                })
-              ;
-            }
-          }
-        },
-        has: {
-          minimum: function() {
-            var
-              searchTerm    = $prompt.val(),
-              numCharacters = searchTerm.length
-            ;
-            return (numCharacters >= settings.minCharacters);
-          }
-        },
-        search: {
-          cancel: function() {
-            var
-              xhr = $module.data('xhr') || false
-            ;
-            if( xhr && xhr.state() != 'resolved') {
-              module.debug('Cancelling last search');
-              xhr.abort();
-            }
-          },
-          throttle: function() {
-            clearTimeout(module.timer);
-            if(module.has.minimum())  {
-              module.timer = setTimeout(module.search.query, settings.searchDelay);
-            }
-            else {
-              module.results.hide();
-            }
-          },
-          query: function() {
-            var
-              searchTerm = $prompt.val(),
-              cachedHTML = module.search.cache.read(searchTerm)
-            ;
-            if(cachedHTML) {
-              module.debug("Reading result for '" + searchTerm + "' from cache");
-              module.results.add(cachedHTML);
-            }
-            else {
-              module.debug("Querying for '" + searchTerm + "'");
-              if($.isPlainObject(settings.source) || $.isArray(settings.source)) {
-                module.search.local(searchTerm);
-              }
-              else if(settings.apiSettings) {
-                module.search.remote(searchTerm);
-              }
-              else if($.fn.api !== undefined && $.api.settings.api.search !== undefined) {
-                module.debug('Searching with default search API endpoint');
-                settings.apiSettings = {
-                  action: 'search'
-                };
-                module.search.remote(searchTerm);
-              }
-              else {
-                module.error(error.source);
-              }
-              $.proxy(settings.onSearchQuery, $module)(searchTerm);
-            }
-          },
-          local: function(searchTerm) {
-            var
-              results   = [],
-              fullTextResults = [],
-              searchFields    = $.isArray(settings.searchFields)
-                ? settings.searchFields
-                : [settings.searchFields],
-              searchRegExp   = new RegExp('(?:\s|^)' + searchTerm, 'i'),
-              fullTextRegExp = new RegExp(searchTerm, 'i'),
-              searchHTML
-            ;
-            $module
-              .addClass(className.loading)
-            ;
-            // iterate through search fields in array order
-            $.each(searchFields, function(index, field) {
-              $.each(settings.source, function(label, content) {
-                var
-                  fieldExists = (typeof content[field] == 'string'),
-                  notAlreadyResult = ($.inArray(content, results) == -1 && $.inArray(content, fullTextResults) == -1)
-                ;
-                if(fieldExists && notAlreadyResult) {
-                  if( searchRegExp.test( content[field] ) ) {
-                    results.push(content);
-                  }
-                  else if( settings.searchFullText && fullTextRegExp.test( content[field] ) ) {
-                    fullTextResults.push(content);
-                  }
-                }
-              });
-            });
-            searchHTML = module.results.generate({
-              results: $.merge(results, fullTextResults)
-            });
-            $module
-              .removeClass(className.loading)
-            ;
-            module.search.cache.write(searchTerm, searchHTML);
-            module.results.add(searchHTML);
-          },
-          remote: function(searchTerm) {
-            var
-              apiSettings = {
-                stateContext : $module,
-                urlData      : {
-                  query: searchTerm
-                },
-                onSuccess : function(response) {
-                  searchHTML = module.results.generate(response);
-                  module.search.cache.write(searchTerm, searchHTML);
-                  module.results.add(searchHTML);
-                },
-                onFailure : module.error
-              },
-              searchHTML
-            ;
-            module.search.cancel();
-            module.debug('Executing search');
-            $.extend(true, apiSettings, settings.apiSettings);
-            $.api(apiSettings);
-          },
-
-          cache: {
-            read: function(name) {
-              var
-                cache = $module.data('cache')
-              ;
-              return (settings.cache && (typeof cache == 'object') && (cache[name] !== undefined) )
-                ? cache[name]
-                : false
-              ;
-            },
-            write: function(name, value) {
-              var
-                cache = ($module.data('cache') !== undefined)
-                  ? $module.data('cache')
-                  : {}
-              ;
-              cache[name] = value;
-              $module
-                .data('cache', cache)
-              ;
-            }
-          }
-        },
-
-        results: {
-          generate: function(response) {
-            module.debug('Generating html from response', response);
-            var
-              template = settings.templates[settings.type],
-              html     = ''
-            ;
-            if(($.isPlainObject(response.results) && !$.isEmptyObject(response.results)) || ($.isArray(response.results) && response.results.length > 0) ) {
-              if(settings.maxResults > 0) {
-                response.results = $.isArray(response.results)
-                  ? response.results.slice(0, settings.maxResults)
-                  : response.results
-                ;
-              }
-              if($.isFunction(template)) {
-                html = template(response);
-              }
-              else {
-                module.error(error.noTemplate, false);
-              }
-            }
-            else {
-              html = module.message(error.noResults, 'empty');
-            }
-            $.proxy(settings.onResults, $module)(response);
-            return html;
-          },
-          add: function(html) {
-            if(settings.onResultsAdd == 'default' || $.proxy(settings.onResultsAdd, $results)(html) == 'default') {
-              $results
-                .html(html)
-              ;
-            }
-            module.results.show();
-          },
-          show: function() {
-            if( ($results.filter(':visible').size() === 0) && ($prompt.filter(':focus').size() > 0) && $results.html() !== '') {
-              if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported') && !$results.transition('is inward')) {
-                module.debug('Showing results with css animations');
-                $results
-                  .transition({
-                    animation  : settings.transition + ' in',
-                    duration   : settings.duration,
-                    queue      : true
-                  })
-                ;
-              }
-              else {
-                module.debug('Showing results with javascript');
-                $results
-                  .stop()
-                  .fadeIn(settings.duration, settings.easing)
-                ;
-              }
-              $.proxy(settings.onResultsOpen, $results)();
-            }
-          },
-          hide: function() {
-            if($results.filter(':visible').size() > 0) {
-              if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported') && !$results.transition('is outward')) {
-                module.debug('Hiding results with css animations');
-                $results
-                  .transition({
-                    animation  : settings.transition + ' out',
-                    duration   : settings.duration,
-                    queue      : true
-                  })
-                ;
-              }
-              else {
-                module.debug('Hiding results with javascript');
-                $results
-                  .stop()
-                  .fadeIn(settings.duration, settings.easing)
-                ;
-              }
-              $.proxy(settings.onResultsClose, $results)();
-            }
-          },
-          select: function(event) {
-            module.debug('Search result selected');
-            var
-              $result = $(this),
-              $title  = $result.find('.title'),
-              title   = $title.html()
-            ;
-            if(settings.onSelect == 'default' || $.proxy(settings.onSelect, this)(event) == 'default') {
-              var
-                $link  = $result.find('a[href]').eq(0),
-                $title = $result.find(selector.title).eq(0),
-                href   = $link.attr('href') || false,
-                target = $link.attr('target') || false,
-                name   = ($title.size() > 0)
-                  ? $title.text()
-                  : false
-              ;
-              module.results.hide();
-              if(name) {
-                $prompt.val(name);
-              }
-              if(href) {
-                if(target == '_blank' || event.ctrlKey) {
-                  window.open(href);
-                }
-                else {
-                  window.location.href = (href);
-                }
-              }
-            }
-          }
-        },
-
-        // displays mesage visibly in search results
-        message: function(text, type) {
-          type = type || 'standard';
-          module.results.add( settings.templates.message(text, type) );
-          return settings.templates.message(text, type);
-        },
-
-        setting: function(name, value) {
-          if( $.isPlainObject(name) ) {
-            $.extend(true, settings, name);
-          }
-          else if(value !== undefined) {
-            settings[name] = value;
-          }
-          else {
-            return settings[name];
-          }
-        },
-        internal: function(name, value) {
-          if( $.isPlainObject(name) ) {
-            $.extend(true, module, name);
-          }
-          else if(value !== undefined) {
-            module[name] = value;
-          }
-          else {
-            return module[name];
-          }
-        },
-        debug: function() {
-          if(settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.debug.apply(console, arguments);
-            }
-          }
-        },
-        verbose: function() {
-          if(settings.verbose && settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.verbose.apply(console, arguments);
-            }
-          }
-        },
-        error: function() {
-          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-          module.error.apply(console, arguments);
-        },
-        performance: {
-          log: function(message) {
-            var
-              currentTime,
-              executionTime,
-              previousTime
-            ;
-            if(settings.performance) {
-              currentTime   = new Date().getTime();
-              previousTime  = time || currentTime;
-              executionTime = currentTime - previousTime;
-              time          = currentTime;
-              performance.push({
-                'Name'           : message[0],
-                'Arguments'      : [].slice.call(message, 1) || '',
-                'Element'        : element,
-                'Execution Time' : executionTime
-              });
-            }
-            clearTimeout(module.performance.timer);
-            module.performance.timer = setTimeout(module.performance.display, 100);
-          },
-          display: function() {
-            var
-              title = settings.name + ':',
-              totalTime = 0
-            ;
-            time = false;
-            clearTimeout(module.performance.timer);
-            $.each(performance, function(index, data) {
-              totalTime += data['Execution Time'];
-            });
-            title += ' ' + totalTime + 'ms';
-            if(moduleSelector) {
-              title += ' \'' + moduleSelector + '\'';
-            }
-            if($allModules.size() > 1) {
-              title += ' ' + '(' + $allModules.size() + ')';
-            }
-            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
-              console.groupCollapsed(title);
-              if(console.table) {
-                console.table(performance);
-              }
-              else {
-                $.each(performance, function(index, data) {
-                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
-                });
-              }
-              console.groupEnd();
-            }
-            performance = [];
-          }
-        },
-        invoke: function(query, passedArguments, context) {
-          var
-            object = instance,
-            maxDepth,
-            found,
-            response
-          ;
-          passedArguments = passedArguments || queryArguments;
-          context         = element         || context;
-          if(typeof query == 'string' && object !== undefined) {
-            query    = query.split(/[\. ]/);
-            maxDepth = query.length - 1;
-            $.each(query, function(depth, value) {
-              var camelCaseValue = (depth != maxDepth)
-                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                : query
-              ;
-              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
-                object = object[camelCaseValue];
-              }
-              else if( object[camelCaseValue] !== undefined ) {
-                found = object[camelCaseValue];
-                return false;
-              }
-              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
-                object = object[value];
-              }
-              else if( object[value] !== undefined ) {
-                found = object[value];
-                return false;
-              }
-              else {
-                return false;
-              }
-            });
-          }
-          if ( $.isFunction( found ) ) {
-            response = found.apply(context, passedArguments);
-          }
-          else if(found !== undefined) {
-            response = found;
-          }
-          if($.isArray(returnedValue)) {
-            returnedValue.push(response);
-          }
-          else if(returnedValue !== undefined) {
-            returnedValue = [returnedValue, response];
-          }
-          else if(response !== undefined) {
-            returnedValue = response;
-          }
-          return found;
-        }
-      };
-      if(methodInvoked) {
-        if(instance === undefined) {
-          module.initialize();
-        }
-        module.invoke(query);
-      }
-      else {
-        if(instance !== undefined) {
-          module.destroy();
-        }
-        module.initialize();
-      }
-
-    })
-  ;
-
-  return (returnedValue !== undefined)
-    ? returnedValue
-    : this
-  ;
-};
-
-$.fn.search.settings = {
-
-  name           : 'Search Module',
-  namespace      : 'search',
-
-  debug          : false,
-  verbose        : true,
-  performance    : true,
-
-  // api config
-  apiSettings    : false,
-  type           : 'standard',
-  minCharacters  : 1,
-
-  source         : false,
-  searchFields   : [
-    'title',
-    'description'
-  ],
-  searchFullText : true,
-
-  automatic      : 'true',
-  hideDelay      : 0,
-  searchDelay    : 300,
-  maxResults     : 7,
-  cache          : true,
-
-  transition     : 'scale',
-  duration       : 300,
-  easing         : 'easeOutExpo',
-
-  // onSelect default action is defined in module
-  onSelect       : 'default',
-  onResultsAdd   : 'default',
-
-  onSearchQuery  : function(){},
-  onResults      : function(response){},
-
-  onResultsOpen  : function(){},
-  onResultsClose : function(){},
-
-  className: {
-    active  : 'active',
-    down    : 'down',
-    focus   : 'focus',
-    empty   : 'empty',
-    loading : 'loading'
-  },
-
-  error : {
-    source      : 'Cannot search. No source used, and Semantic API module was not included',
-    noResults   : 'Your search returned no results',
-    logging     : 'Error in debug logging, exiting.',
-    noTemplate  : 'A valid template name was not specified.',
-    serverError : 'There was an issue with querying the server.',
-    method      : 'The method you called is not defined.'
-  },
-
-  selector : {
-    prompt       : '.prompt',
-    searchButton : '.search.button',
-    results      : '.results',
-    category     : '.category',
-    result       : '.result',
-    title        : '.title, .name'
-  },
-
-  templates: {
-    escape: function(string) {
-      var
-        badChars     = /[&<>"'`]/g,
-        shouldEscape = /[&<>"'`]/,
-        escape       = {
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#x27;",
-          "`": "&#x60;"
-        },
-        escapedChar  = function(chr) {
-          return escape[chr];
-        }
-      ;
-      if(shouldEscape.test(string)) {
-        return string.replace(badChars, escapedChar);
-      }
-      return string;
-    },
-    message: function(message, type) {
-      var
-        html = ''
-      ;
-      if(message !== undefined && type !== undefined) {
-        html +=  ''
-          + '<div class="message ' + type + '">'
-        ;
-        // message type
-        if(type == 'empty') {
-          html += ''
-            + '<div class="header">No Results</div class="header">'
-            + '<div class="description">' + message + '</div class="description">'
-          ;
-        }
-        else {
-          html += ' <div class="description">' + message + '</div>';
-        }
-        html += '</div>';
-      }
-      return html;
-    },
-    category: function(response) {
-      var
-        html = '',
-        escape = $.fn.search.settings.templates.escape
-      ;
-      if(response.results !== undefined) {
-        // each category
-        $.each(response.results, function(index, category) {
-          if(category.results !== undefined && category.results.length > 0) {
-            html  += ''
-              + '<div class="category">'
-              + '<div class="name">' + category.name + '</div>'
-            ;
-            // each item inside category
-            $.each(category.results, function(index, result) {
-              html  += '<div class="result">';
-              if(result.url) {
-                html  += '<a href="' + result.url + '"></a>';
-              }
-              if(result.image !== undefined) {
-                result.image = escape(result.image);
-                html += ''
-                  + '<div class="image">'
-                  + ' <img src="' + result.image + '" alt="">'
-                  + '</div>'
-                ;
-              }
-              html += '<div class="content">';
-              if(result.price !== undefined) {
-                result.price = escape(result.price);
-                html += '<div class="price">' + result.price + '</div>';
-              }
-              if(result.title !== undefined) {
-                result.title = escape(result.title);
-                html += '<div class="title">' + result.title + '</div>';
-              }
-              if(result.description !== undefined) {
-                html += '<div class="description">' + result.description + '</div>';
-              }
-              html  += ''
-                + '</div>'
-                + '</div>'
-              ;
-            });
-            html  += ''
-              + '</div>'
-            ;
-          }
-        });
-        if(response.action) {
-          html += ''
-          + '<a href="' + response.action.url + '" class="action">'
-          +   response.action.text
-          + '</a>';
-        }
-        return html;
-      }
-      return false;
-    },
-    standard: function(response) {
-      var
-        html = ''
-      ;
-      if(response.results !== undefined) {
-
-        // each result
-        $.each(response.results, function(index, result) {
-          if(result.url) {
-            html  += '<a class="result" href="' + result.url + '">';
-          }
-          else {
-            html  += '<a class="result">';
-          }
-          if(result.image !== undefined) {
-            html += ''
-              + '<div class="image">'
-              + ' <img src="' + result.image + '">'
-              + '</div>'
-            ;
-          }
-          html += '<div class="content">';
-          if(result.price !== undefined) {
-            html += '<div class="price">' + result.price + '</div>';
-          }
-          if(result.title !== undefined) {
-            html += '<div class="title">' + result.title + '</div>';
-          }
-          if(result.description !== undefined) {
-            html += '<div class="description">' + result.description + '</div>';
-          }
-          html  += ''
-            + '</div>'
-          ;
-          html += '</a>';
-        });
-
-        if(response.action) {
-          html += ''
-          + '<a href="' + response.action.url + '" class="action">'
-          +   response.action.text
-          + '</a>';
-        }
-        return html;
-      }
-      return false;
-    }
-  }
-};
-
-})( jQuery, window , document );
-
-/*
- * # Semantic - Shape
+ * # Semantic - Sidebar
  * http://github.com/semantic-org/semantic-ui/
  *
  *
@@ -7554,17 +8149,19 @@ $.fn.search.settings = {
 
 "use strict";
 
-$.fn.shape = function(parameters) {
+$.fn.sidebar = function(parameters) {
   var
-    $allModules     = $(this),
-    $body           = $('body'),
+    $allModules    = $(this),
+    $head          = $('head'),
 
-    time            = new Date().getTime(),
-    performance     = [],
+    moduleSelector = $allModules.selector || '',
 
-    query           = arguments[0],
-    methodInvoked   = (typeof query == 'string'),
-    queryArguments  = [].slice.call(arguments, 1),
+    time           = new Date().getTime(),
+    performance    = [],
+
+    query          = arguments[0],
+    methodInvoked  = (typeof query == 'string'),
+    queryArguments = [].slice.call(arguments, 1),
 
     requestAnimationFrame = window.requestAnimationFrame
       || window.mozRequestAnimationFrame
@@ -7578,40 +8175,50 @@ $.fn.shape = function(parameters) {
   $allModules
     .each(function() {
       var
-        moduleSelector  = $allModules.selector || '',
-        settings        = $.extend(true, {}, $.fn.shape.settings, parameters),
+        settings        = ( $.isPlainObject(parameters) )
+          ? $.extend(true, {}, $.fn.sidebar.settings, parameters)
+          : $.extend({}, $.fn.sidebar.settings),
 
-        // internal aliases
-        namespace     = settings.namespace,
-        selector      = settings.selector,
-        error         = settings.error,
-        className     = settings.className,
+        selector        = settings.selector,
+        className       = settings.className,
+        namespace       = settings.namespace,
+        error           = settings.error,
 
-        // define namespaces for modules
         eventNamespace  = '.' + namespace,
         moduleNamespace = 'module-' + namespace,
 
-        // selector cache
-        $module       = $(this),
-        $sides        = $module.find(selector.sides),
-        $side         = $module.find(selector.side),
+        $module         = $(this),
+        $context        = $(settings.context),
 
-        // private variables
-        nextIndex = false,
-        $activeSide,
-        $nextSide,
+        $sidebars       = $module.children(selector.sidebar),
+        $pusher         = $context.children(selector.pusher),
+        $style,
 
-        // standard module
-        element       = this,
-        instance      = $module.data(moduleNamespace),
+        element         = this,
+        instance        = $module.data(moduleNamespace),
+
+        currentScroll,
+        transitionEvent,
+
         module
       ;
 
-      module = {
+      module      = {
 
         initialize: function() {
-          module.verbose('Initializing module for', element);
-          module.set.defaultSide();
+          module.debug('Initializing sidebar', parameters);
+
+          transitionEvent = module.get.transitionEvent();
+
+          // cache on initialize
+          if( module.is.legacy() || settings.legacy) {
+            settings.transition = 'overlay';
+            settings.useLegacy = true;
+          }
+
+          // avoid locking rendering if included in onReady
+          requestAnimationFrame(module.setup.layout);
+
           module.instantiate();
         },
 
@@ -7619,367 +8226,514 @@ $.fn.shape = function(parameters) {
           module.verbose('Storing instance of module', module);
           instance = module;
           $module
-            .data(moduleNamespace, instance)
+            .data(moduleNamespace, module)
           ;
         },
 
         destroy: function() {
-          module.verbose('Destroying previous module for', element);
+          module.verbose('Destroying previous module for', $module);
+          module.remove.direction();
           $module
-            .removeData(moduleNamespace)
             .off(eventNamespace)
+            .removeData(moduleNamespace)
           ;
         },
 
+        event: {
+          clickaway: function(event) {
+            if( $(event.target).closest(selector.sidebar).size() === 0 ) {
+              module.verbose('User clicked on dimmed page');
+              module.hide();
+            }
+          },
+          touch: function(event) {
+            //event.stopPropagation();
+          },
+          containScroll: function(event) {
+            if(element.scrollTop <= 0)  {
+              element.scrollTop = 1;
+            }
+            if((element.scrollTop + element.offsetHeight) >= element.scrollHeight) {
+              element.scrollTop = element.scrollHeight - element.offsetHeight - 1;
+            }
+          },
+          scroll: function(event) {
+            if( $(event.target).closest(selector.sidebar).size() === 0 ) {
+              event.preventDefault();
+            }
+          }
+        },
+
+        bind: {
+          clickaway: function() {
+            if(settings.scrollLock) {
+              $(window)
+                .on('DOMMouseScroll' + eventNamespace, module.event.scroll)
+              ;
+            }
+            $(document)
+              .on('touchmove' + eventNamespace, module.event.touch)
+            ;
+            $module
+              .on('scroll' + eventNamespace, module.event.containScroll)
+            ;
+            if(settings.closable) {
+              $context
+                .on('click' + eventNamespace, module.event.clickaway)
+                .on('touchend' + eventNamespace, module.event.clickaway)
+              ;
+            }
+          }
+        },
+        unbind: {
+          clickaway: function() {
+            $context.off(eventNamespace);
+            $pusher.off(eventNamespace);
+            $(document).off(eventNamespace);
+            $(window).off(eventNamespace);
+          }
+        },
+
+        add: {
+          bodyCSS: function(direction, distance) {
+            var
+              width  = $module.outerWidth(),
+              height = $module.outerHeight(),
+              style  = ''
+                + '<style title="' + namespace + '">'
+                + ' .ui.visible.left.sidebar ~ .fixed,'
+                + ' .ui.visible.left.sidebar ~ .pusher {'
+                + '   -webkit-transform: translate3d('+ width + 'px, 0, 0);'
+                + '           transform: translate3d('+ width + 'px, 0, 0);'
+                + ' }'
+                + ' .ui.visible.right.sidebar ~ .fixed,'
+                + ' .ui.visible.right.sidebar ~ .pusher {'
+                + '   -webkit-transform: translate3d(-'+ width + 'px, 0, 0);'
+                + '           transform: translate3d(-'+ width + 'px, 0, 0);'
+                + ' }'
+                + ' .ui.visible.left.sidebar ~ .ui.visible.right.sidebar ~ .fixed,'
+                + ' .ui.visible.left.sidebar ~ .ui.visible.right.sidebar ~ .pusher,'
+                + ' .ui.visible.right.sidebar ~ .ui.visible.left.sidebar ~ .fixed,'
+                + ' .ui.visible.right.sidebar ~ .ui.visible.left.sidebar ~ .pusher {'
+                + '   -webkit-transform: translate3d(0px, 0, 0);'
+                + '           transform: translate3d(0px, 0, 0);'
+                + ' }'
+                + ' .ui.visible.top.sidebar ~ .fixed,'
+                + ' .ui.visible.top.sidebar ~ .pusher {'
+                + '   -webkit-transform: translate3d(0, ' + height + 'px, 0);'
+                + '           transform: translate3d(0, ' + height + 'px, 0);'
+                + ' }'
+                + ' .ui.visible.bottom.sidebar ~ .fixed,'
+                + ' .ui.visible.bottom.sidebar ~ .pusher {'
+                + '   -webkit-transform: translate3d(0, -' + height + 'px, 0);'
+                + '           transform: translate3d(0, -' + height + 'px, 0);'
+                + ' }'
+                + '</style>'
+            ;
+            $head.append(style);
+            $style = $('style[title=' + namespace + ']');
+            module.debug('Adding sizing css to head', $style);
+          }
+        },
+
         refresh: function() {
-          module.verbose('Refreshing selector cache for', element);
-          $module = $(element);
-          $sides  = $(this).find(selector.shape);
-          $side   = $(this).find(selector.side);
+          module.verbose('Refreshing selector cache');
+          $context  = $(settings.context);
+          $sidebars = $context.children(selector.sidebar);
+          $pusher   = $context.children(selector.pusher);
         },
 
         repaint: function() {
           module.verbose('Forcing repaint event');
-          var
-            shape          = $sides.get(0) || document.createElement('div'),
-            fakeAssignment = shape.offsetWidth
-          ;
+          element.style.display='none';
+          element.offsetHeight;
+          element.scrollTop = element.scrollTop;
+          element.style.display='';
         },
 
-        animate: function(propertyObject, callback) {
-          module.verbose('Animating box with properties', propertyObject);
-          callback = callback || function(event) {
-            module.verbose('Executing animation callback');
-            if(event !== undefined) {
-              event.stopPropagation();
+        setup: {
+          layout: function() {
+            if( $context.children(selector.pusher).size() === 0 ) {
+              module.debug('Adding wrapper element for sidebar');
+              module.error(error.pusher);
+              $pusher = $('<div class="pusher" />');
+              $context
+                .children()
+                  .not(selector.omitted)
+                  .not($sidebars)
+                  .wrapAll($pusher)
+              ;
+              module.refresh();
             }
-            module.reset();
-            module.set.active();
-          };
-          $.proxy(settings.beforeChange, $nextSide[0])();
-          if(module.get.transitionEvent()) {
-            module.verbose('Starting CSS animation');
-            $module
-              .addClass(className.animating)
+            if($module.nextAll(selector.pusher).size() == 0 || $module.nextAll(selector.pusher)[0] !== $pusher[0]) {
+              module.debug('Moved sidebar to correct parent element');
+              module.error(error.movedSidebar, element);
+              $module.detach().prependTo($context);
+              module.refresh();
+            }
+            module.set.pushable();
+            module.set.direction();
+          }
+        },
+
+        attachEvents: function(selector, event) {
+          var
+            $toggle = $(selector)
+          ;
+          event = $.isFunction(module[event])
+            ? module[event]
+            : module.toggle
+          ;
+          if($toggle.size() > 0) {
+            module.debug('Attaching sidebar events to element', selector, event);
+            $toggle
+              .on('click' + eventNamespace, event)
             ;
-            $sides
-              .css(propertyObject)
-              .one(module.get.transitionEvent(), callback)
-            ;
-            module.set.duration(settings.duration);
-            requestAnimationFrame(function() {
-              $module
-                .addClass(className.animating)
-              ;
-              $activeSide
-                .addClass(className.hidden)
-              ;
-            });
           }
           else {
-            callback();
+            module.error(error.notFound, selector);
           }
         },
 
-        queue: function(method) {
-          module.debug('Queueing animation of', method);
-          $sides
-            .one(module.get.transitionEvent(), function() {
-              module.debug('Executing queued animation');
-              setTimeout(function(){
-                $module.shape(method);
-              }, 0);
+        show: function(callback) {
+          var
+            animateMethod = (settings.useLegacy)
+              ? module.legacyPushPage
+              : module.pushPage
+          ;
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          if(module.is.closed()) {
+            if(settings.overlay)  {
+              module.error(error.overlay);
+              settings.transition = 'overlay';
+            }
+            module.refresh();
+            if(module.othersVisible() && module.get.transition() != 'overlay') {
+              module.debug('Other sidebars currently open');
+              if(settings.exclusive) {
+                module.hideOthers();
+              }
+            }
+            animateMethod(function() {
+              $.proxy(callback, element)();
+              $.proxy(settings.onShow, element)();
+            });
+            $.proxy(settings.onChange, element)();
+            $.proxy(settings.onVisible, element)();
+          }
+          else {
+            module.debug('Sidebar is already visible');
+          }
+        },
+
+        hide: function(callback) {
+          var
+            animateMethod = (settings.useLegacy)
+              ? module.legacyPullPage
+              : module.pullPage
+          ;
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          if(module.is.visible() || module.is.animating()) {
+            module.debug('Hiding sidebar', callback);
+            animateMethod(function() {
+              $.proxy(callback, element)();
+              $.proxy(settings.onHidden, element)();
+            });
+            $.proxy(settings.onChange, element)();
+            $.proxy(settings.onHide, element)();
+          }
+        },
+
+        othersVisible: function() {
+          return ($sidebars.not($module).filter('.' + className.visible).size() > 0);
+        },
+        othersActive: function() {
+          return ($sidebars.not($module).filter('.' + className.active).size() > 0);
+        },
+
+        hideOthers: function(callback) {
+          var
+            $otherSidebars = $sidebars.not($module).filter('.' + className.visible),
+            callback       = callback || function(){},
+            sidebarCount   = $otherSidebars.size(),
+            callbackCount  = 0
+          ;
+          $otherSidebars
+            .sidebar('hide', function() {
+              callbackCount++;
+              if(callbackCount == sidebarCount) {
+                callback();
+              }
             })
           ;
         },
 
-        reset: function() {
-          module.verbose('Animating states reset');
-          $module
-            .removeClass(className.animating)
-            .attr('style', '')
-            .removeAttr('style')
+        toggle: function() {
+          module.verbose('Determining toggled direction');
+          if(module.is.closed()) {
+            module.show();
+          }
+          else {
+            module.hide();
+          }
+        },
+
+        pushPage: function(callback) {
+          var
+            transition = module.get.transition(),
+            $transition = (transition == 'safe')
+              ? $context
+              : (transition == 'overlay' || module.othersActive())
+                ? $module
+                : $pusher,
+            animate,
+            transitionEnd
           ;
-          // removeAttr style does not consistently work in safari
-          $sides
-            .attr('style', '')
-            .removeAttr('style')
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
           ;
-          $side
-            .attr('style', '')
-            .removeAttr('style')
-            .removeClass(className.hidden)
+          if(settings.transition == 'scale down' || (module.is.mobile() && transition !== 'overlay')) {
+            module.scrollToTop();
+          }
+          module.set.transition();
+          module.repaint();
+          animate = function() {
+            module.add.bodyCSS();
+            module.set.animating();
+            module.set.visible();
+            if(!module.othersActive()) {
+              if(settings.dimPage) {
+                $pusher.addClass(className.dimmed);
+              }
+            }
+          };
+          transitionEnd = function(event) {
+            if( event.target == $transition[0] ) {
+              $transition.off(transitionEvent + eventNamespace, transitionEnd);
+              module.remove.animating();
+              module.bind.clickaway();
+              $.proxy(callback, element)();
+            }
+          };
+          $transition.on(transitionEvent + eventNamespace, transitionEnd);
+          requestAnimationFrame(animate);
+        },
+
+        pullPage: function(callback) {
+          var
+            transition = module.get.transition(),
+            $transition = (transition == 'safe')
+              ? $context
+              : (transition == 'overlay' || module.othersActive())
+                ? $module
+                : $pusher,
+            animate,
+            transitionEnd
           ;
-          $nextSide
-            .removeClass(className.animating)
-            .attr('style', '')
-            .removeAttr('style')
+          callback = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          module.verbose('Removing context push state', module.get.direction());
+          if(!module.othersActive()) {
+            module.unbind.clickaway();
+          }
+          animate = function() {
+            module.set.animating();
+            module.remove.visible();
+            if(settings.dimPage && !module.othersActive()) {
+              $pusher.removeClass(className.dimmed);
+            }
+          };
+          transitionEnd = function(event) {
+            if( event.target == $transition[0] ) {
+              $transition.off(transitionEvent + eventNamespace, transitionEnd);
+              module.remove.animating();
+              module.remove.transition();
+              module.remove.bodyCSS();
+              if(transition == 'scale down' || (settings.returnScroll && module.is.mobile()) ) {
+                module.scrollBack();
+              }
+              $.proxy(callback, element)();
+            }
+          };
+          $transition.on(transitionEvent + eventNamespace, transitionEnd);
+          requestAnimationFrame(animate);
+        },
+
+        legacyPushPage: function(callback) {
+          var
+            distance   = $module.width(),
+            direction  = module.get.direction(),
+            properties = {}
+          ;
+          distance  = distance || $module.width();
+          callback  = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          properties[direction] = distance;
+          module.debug('Using javascript to push context', properties);
+          module.set.visible();
+          module.set.transition();
+          module.set.animating();
+          if(settings.dimPage) {
+            $pusher.addClass(className.dimmed);
+          }
+          $context
+            .css('position', 'relative')
+            .animate(properties, settings.duration, settings.easing, function() {
+              module.remove.animating();
+              module.bind.clickaway();
+              $.proxy(callback, module)();
+            })
+          ;
+        },
+        legacyPullPage: function(callback) {
+          var
+            distance   = 0,
+            direction  = module.get.direction(),
+            properties = {}
+          ;
+          distance  = distance || $module.width();
+          callback  = $.isFunction(callback)
+            ? callback
+            : function(){}
+          ;
+          properties[direction] = '0px';
+          module.debug('Using javascript to pull context', properties);
+          module.unbind.clickaway();
+          module.set.animating();
+          module.remove.visible();
+          if(settings.dimPage && !module.othersVisible()) {
+            $pusher.removeClass(className.dimmed);
+          }
+          $context
+            .css('position', 'relative')
+            .animate(properties, settings.duration, settings.easing, function() {
+              module.remove.animating();
+              $.proxy(callback, module)();
+            })
           ;
         },
 
-        is: {
-          complete: function() {
-            return ($side.filter('.' + className.active)[0] == $nextSide[0]);
-          },
-          animating: function() {
-            return $module.hasClass(className.animating);
-          }
+        scrollToTop: function() {
+          module.verbose('Scrolling to top of page to avoid animation issues');
+          currentScroll = $(window).scrollTop();
+          $module.scrollTop(0);
+          window.scrollTo(0, 0);
+        },
+
+        scrollBack: function() {
+          module.verbose('Scrolling back to original page position');
+          window.scrollTo(0, currentScroll);
         },
 
         set: {
-
-          defaultSide: function() {
-            $activeSide = $module.find('.' + settings.className.active);
-            $nextSide   = ( $activeSide.next(selector.side).size() > 0 )
-              ? $activeSide.next(selector.side)
-              : $module.find(selector.side).first()
-            ;
-            nextIndex = false;
-            module.verbose('Active side set to', $activeSide);
-            module.verbose('Next side set to', $nextSide);
+          // container
+          pushed: function() {
+            $context.addClass(className.pushed);
+          },
+          pushable: function() {
+            $context.addClass(className.pushable);
           },
 
-          duration: function(duration) {
-            duration = duration || settings.duration;
-            duration = (typeof duration == 'number')
-              ? duration + 'ms'
-              : duration
-            ;
-            module.verbose('Setting animation duration', duration);
-            $sides.add($side)
-              .css({
-                '-webkit-transition-duration': duration,
-                '-moz-transition-duration': duration,
-                '-ms-transition-duration': duration,
-                '-o-transition-duration': duration,
-                'transition-duration': duration
-              })
-            ;
-          },
-
-          stageSize: function() {
-            var
-              $clone      = $module.clone().addClass(className.loading),
-              $activeSide = $clone.find('.' + settings.className.active),
-              $nextSide   = (nextIndex)
-                ? $clone.find(selector.side).eq(nextIndex)
-                : ( $activeSide.next(selector.side).size() > 0 )
-                  ? $activeSide.next(selector.side)
-                  : $clone.find(selector.side).first(),
-              newSize = {}
-            ;
-            $activeSide.removeClass(className.active);
-            $nextSide.addClass(className.active);
-            $clone.insertAfter($module);
-            newSize = {
-              width  : $nextSide.outerWidth(),
-              height : $nextSide.outerHeight()
-            };
-            $clone.remove();
-            $module
-              .css(newSize)
-            ;
-            module.verbose('Resizing stage to fit new content', newSize);
-          },
-
-          nextSide: function(selector) {
-            nextIndex = selector;
-            $nextSide = $side.filter(selector);
-            nextIndex = $side.index($nextSide);
-            if($nextSide.size() === 0) {
-              module.set.defaultSide();
-              module.error(error.side);
-            }
-            module.verbose('Next side manually set to', $nextSide);
-          },
-
+          // sidebar
           active: function() {
-            module.verbose('Setting new side to active', $nextSide);
-            $side
-              .removeClass(className.active)
-            ;
-            $nextSide
-              .addClass(className.active)
-            ;
-            $.proxy(settings.onChange, $nextSide[0])();
-            module.set.defaultSide();
+            $module.addClass(className.active);
+          },
+          animating: function() {
+            $module.addClass(className.animating);
+          },
+          transition: function(transition) {
+            transition = transition || module.get.transition();
+            $module.addClass(transition);
+          },
+          direction: function(direction) {
+            direction = direction || module.get.direction();
+            $module.addClass(className[direction]);
+          },
+          visible: function() {
+            $module.addClass(className.visible);
+          },
+          overlay: function() {
+            $module.addClass(className.overlay);
           }
         },
+        remove: {
 
-        flip: {
-
-          up: function() {
-            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
-              module.debug('Side already visible', $nextSide);
-              return;
-            }
-            if( !module.is.animating()) {
-              module.debug('Flipping up', $nextSide);
-              module.set.stageSize();
-              module.stage.above();
-              module.animate( module.get.transform.up() );
-            }
-            else {
-              module.queue('flip up');
+          bodyCSS: function() {
+            module.debug('Removing body css styles', $style);
+            if($style.size() > 0) {
+              $style.remove();
             }
           },
 
-          down: function() {
-            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
-              module.debug('Side already visible', $nextSide);
-              return;
-            }
-            if( !module.is.animating()) {
-              module.debug('Flipping down', $nextSide);
-              module.set.stageSize();
-              module.stage.below();
-              module.animate( module.get.transform.down() );
-            }
-            else {
-              module.queue('flip down');
-            }
+          // context
+          pushed: function() {
+            $context.removeClass(className.pushed);
+          },
+          pushable: function() {
+            $context.removeClass(className.pushable);
           },
 
-          left: function() {
-            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
-              module.debug('Side already visible', $nextSide);
-              return;
-            }
-            if( !module.is.animating()) {
-              module.debug('Flipping left', $nextSide);
-              module.set.stageSize();
-              module.stage.left();
-              module.animate(module.get.transform.left() );
-            }
-            else {
-              module.queue('flip left');
-            }
+          // sidebar
+          active: function() {
+            $module.removeClass(className.active);
           },
-
-          right: function() {
-            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
-              module.debug('Side already visible', $nextSide);
-              return;
-            }
-            if( !module.is.animating()) {
-              module.debug('Flipping right', $nextSide);
-              module.set.stageSize();
-              module.stage.right();
-              module.animate(module.get.transform.right() );
-            }
-            else {
-              module.queue('flip right');
-            }
+          animating: function() {
+            $module.removeClass(className.animating);
           },
-
-          over: function() {
-            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
-              module.debug('Side already visible', $nextSide);
-              return;
-            }
-            if( !module.is.animating()) {
-              module.debug('Flipping over', $nextSide);
-              module.set.stageSize();
-              module.stage.behind();
-              module.animate(module.get.transform.over() );
-            }
-            else {
-              module.queue('flip over');
-            }
+          transition: function(transition) {
+            transition = transition || module.get.transition();
+            $module.removeClass(transition);
           },
-
-          back: function() {
-            if(module.is.complete() && !module.is.animating() && !settings.allowRepeats) {
-              module.debug('Side already visible', $nextSide);
-              return;
-            }
-            if( !module.is.animating()) {
-              module.debug('Flipping back', $nextSide);
-              module.set.stageSize();
-              module.stage.behind();
-              module.animate(module.get.transform.back() );
-            }
-            else {
-              module.queue('flip back');
-            }
+          direction: function(direction) {
+            direction = direction || module.get.direction();
+            $module.removeClass(className[direction]);
+          },
+          visible: function() {
+            $module.removeClass(className.visible);
+          },
+          overlay: function() {
+            $module.removeClass(className.overlay);
           }
-
         },
 
         get: {
-
-          transform: {
-            up: function() {
-              var
-                translate = {
-                  y: -(($activeSide.outerHeight() - $nextSide.outerHeight()) / 2),
-                  z: -($activeSide.outerHeight() / 2)
-                }
-              ;
-              return {
-                transform: 'translateY(' + translate.y + 'px) translateZ('+ translate.z + 'px) rotateX(-90deg)'
-              };
-            },
-
-            down: function() {
-              var
-                translate = {
-                  y: -(($activeSide.outerHeight() - $nextSide.outerHeight()) / 2),
-                  z: -($activeSide.outerHeight() / 2)
-                }
-              ;
-              return {
-                transform: 'translateY(' + translate.y + 'px) translateZ('+ translate.z + 'px) rotateX(90deg)'
-              };
-            },
-
-            left: function() {
-              var
-                translate = {
-                  x : -(($activeSide.outerWidth() - $nextSide.outerWidth()) / 2),
-                  z : -($activeSide.outerWidth() / 2)
-                }
-              ;
-              return {
-                transform: 'translateX(' + translate.x + 'px) translateZ(' + translate.z + 'px) rotateY(90deg)'
-              };
-            },
-
-            right: function() {
-              var
-                translate = {
-                  x : -(($activeSide.outerWidth() - $nextSide.outerWidth()) / 2),
-                  z : -($activeSide.outerWidth() / 2)
-                }
-              ;
-              return {
-                transform: 'translateX(' + translate.x + 'px) translateZ(' + translate.z + 'px) rotateY(-90deg)'
-              };
-            },
-
-            over: function() {
-              var
-                translate = {
-                  x : -(($activeSide.outerWidth() - $nextSide.outerWidth()) / 2)
-                }
-              ;
-              return {
-                transform: 'translateX(' + translate.x + 'px) rotateY(180deg)'
-              };
-            },
-
-            back: function() {
-              var
-                translate = {
-                  x : -(($activeSide.outerWidth() - $nextSide.outerWidth()) / 2)
-                }
-              ;
-              return {
-                transform: 'translateX(' + translate.x + 'px) rotateY(-180deg)'
-              };
+          direction: function() {
+            if($module.hasClass(className.top)) {
+              return className.top;
             }
+            else if($module.hasClass(className.right)) {
+              return className.right;
+            }
+            else if($module.hasClass(className.bottom)) {
+              return className.bottom;
+            }
+            return className.left;
           },
-
+          transition: function() {
+            var
+              direction = module.get.direction(),
+              transition
+            ;
+            return ( module.is.mobile() )
+              ? (settings.mobileTransition == 'auto')
+                ? settings.defaultTransition.mobile[direction]
+                : settings.mobileTransition
+              : (settings.transition == 'auto')
+                ? settings.defaultTransition.computer[direction]
+                : settings.transition
+            ;
+          },
           transitionEvent: function() {
             var
               element     = document.createElement('element'),
@@ -7996,780 +8750,60 @@ $.fn.shape = function(parameters) {
                 return transitions[transition];
               }
             }
-          },
-
-          nextSide: function() {
-            return ( $activeSide.next(selector.side).size() > 0 )
-              ? $activeSide.next(selector.side)
-              : $module.find(selector.side).first()
-            ;
-          }
-
-        },
-
-        stage: {
-
-          above: function() {
-            var
-              box = {
-                origin : (($activeSide.outerHeight() - $nextSide.outerHeight()) / 2),
-                depth  : {
-                  active : ($nextSide.outerHeight() / 2),
-                  next   : ($activeSide.outerHeight() / 2)
-                }
-              }
-            ;
-            module.verbose('Setting the initial animation position as above', $nextSide, box);
-            $activeSide
-              .css({
-                'transform' : 'rotateY(0deg) translateZ(' + box.depth.active + 'px)'
-              })
-            ;
-            $nextSide
-              .addClass(className.animating)
-              .css({
-                'display'   : 'block',
-                'top'       : box.origin + 'px',
-                'transform' : 'rotateX(90deg) translateZ(' + box.depth.next + 'px)'
-              })
-            ;
-          },
-
-          below: function() {
-            var
-              box = {
-                origin : (($activeSide.outerHeight() - $nextSide.outerHeight()) / 2),
-                depth  : {
-                  active : ($nextSide.outerHeight() / 2),
-                  next   : ($activeSide.outerHeight() / 2)
-                }
-              }
-            ;
-            module.verbose('Setting the initial animation position as below', $nextSide, box);
-            $activeSide
-              .css({
-                'transform' : 'rotateY(0deg) translateZ(' + box.depth.active + 'px)'
-              })
-            ;
-            $nextSide
-              .addClass(className.animating)
-              .css({
-                'display'   : 'block',
-                'top'       : box.origin + 'px',
-                'transform' : 'rotateX(-90deg) translateZ(' + box.depth.next + 'px)'
-              })
-            ;
-          },
-
-          left: function() {
-            var
-              box = {
-                origin : ( ( $activeSide.outerWidth() - $nextSide.outerWidth() ) / 2),
-                depth  : {
-                  active : ($nextSide.outerWidth() / 2),
-                  next   : ($activeSide.outerWidth() / 2)
-                }
-              }
-            ;
-            module.verbose('Setting the initial animation position as left', $nextSide, box);
-            $activeSide
-              .css({
-                'transform' : 'rotateY(0deg) translateZ(' + box.depth.active + 'px)'
-              })
-            ;
-            $nextSide
-              .addClass(className.animating)
-              .css({
-                'display'   : 'block',
-                'left'      : box.origin + 'px',
-                'transform' : 'rotateY(-90deg) translateZ(' + box.depth.next + 'px)'
-              })
-            ;
-          },
-
-          right: function() {
-            var
-              box = {
-                origin : ( ( $activeSide.outerWidth() - $nextSide.outerWidth() ) / 2),
-                depth  : {
-                  active : ($nextSide.outerWidth() / 2),
-                  next   : ($activeSide.outerWidth() / 2)
-                }
-              }
-            ;
-            module.verbose('Setting the initial animation position as left', $nextSide, box);
-            $activeSide
-              .css({
-                'transform' : 'rotateY(0deg) translateZ(' + box.depth.active + 'px)'
-              })
-            ;
-            $nextSide
-              .addClass(className.animating)
-              .css({
-                'display'   : 'block',
-                'left'      : box.origin + 'px',
-                'transform' : 'rotateY(90deg) translateZ(' + box.depth.next + 'px)'
-              })
-            ;
-          },
-
-          behind: function() {
-            var
-              box = {
-                origin : ( ( $activeSide.outerWidth() - $nextSide.outerWidth() ) / 2),
-                depth  : {
-                  active : ($nextSide.outerWidth() / 2),
-                  next   : ($activeSide.outerWidth() / 2)
-                }
-              }
-            ;
-            module.verbose('Setting the initial animation position as behind', $nextSide, box);
-            $activeSide
-              .css({
-                'transform' : 'rotateY(0deg)'
-              })
-            ;
-            $nextSide
-              .addClass(className.animating)
-              .css({
-                'display'   : 'block',
-                'left'      : box.origin + 'px',
-                'transform' : 'rotateY(-180deg)'
-              })
-            ;
-          }
-        },
-        setting: function(name, value) {
-          module.debug('Changing setting', name, value);
-          if( $.isPlainObject(name) ) {
-            $.extend(true, settings, name);
-          }
-          else if(value !== undefined) {
-            settings[name] = value;
-          }
-          else {
-            return settings[name];
-          }
-        },
-        internal: function(name, value) {
-          if( $.isPlainObject(name) ) {
-            $.extend(true, module, name);
-          }
-          else if(value !== undefined) {
-            module[name] = value;
-          }
-          else {
-            return module[name];
-          }
-        },
-        debug: function() {
-          if(settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.debug.apply(console, arguments);
-            }
-          }
-        },
-        verbose: function() {
-          if(settings.verbose && settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.verbose.apply(console, arguments);
-            }
-          }
-        },
-        error: function() {
-          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-          module.error.apply(console, arguments);
-        },
-        performance: {
-          log: function(message) {
-            var
-              currentTime,
-              executionTime,
-              previousTime
-            ;
-            if(settings.performance) {
-              currentTime   = new Date().getTime();
-              previousTime  = time || currentTime;
-              executionTime = currentTime - previousTime;
-              time          = currentTime;
-              performance.push({
-                'Name'           : message[0],
-                'Arguments'      : [].slice.call(message, 1) || '',
-                'Element'        : element,
-                'Execution Time' : executionTime
-              });
-            }
-            clearTimeout(module.performance.timer);
-            module.performance.timer = setTimeout(module.performance.display, 100);
-          },
-          display: function() {
-            var
-              title = settings.name + ':',
-              totalTime = 0
-            ;
-            time = false;
-            clearTimeout(module.performance.timer);
-            $.each(performance, function(index, data) {
-              totalTime += data['Execution Time'];
-            });
-            title += ' ' + totalTime + 'ms';
-            if(moduleSelector) {
-              title += ' \'' + moduleSelector + '\'';
-            }
-            if($allModules.size() > 1) {
-              title += ' ' + '(' + $allModules.size() + ')';
-            }
-            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
-              console.groupCollapsed(title);
-              if(console.table) {
-                console.table(performance);
-              }
-              else {
-                $.each(performance, function(index, data) {
-                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
-                });
-              }
-              console.groupEnd();
-            }
-            performance = [];
-          }
-        },
-        invoke: function(query, passedArguments, context) {
-          var
-            object = instance,
-            maxDepth,
-            found,
-            response
-          ;
-          passedArguments = passedArguments || queryArguments;
-          context         = element         || context;
-          if(typeof query == 'string' && object !== undefined) {
-            query    = query.split(/[\. ]/);
-            maxDepth = query.length - 1;
-            $.each(query, function(depth, value) {
-              var camelCaseValue = (depth != maxDepth)
-                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                : query
-              ;
-              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
-                object = object[camelCaseValue];
-              }
-              else if( object[camelCaseValue] !== undefined ) {
-                found = object[camelCaseValue];
-                return false;
-              }
-              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
-                object = object[value];
-              }
-              else if( object[value] !== undefined ) {
-                found = object[value];
-                return false;
-              }
-              else {
-                return false;
-              }
-            });
-          }
-          if ( $.isFunction( found ) ) {
-            response = found.apply(context, passedArguments);
-          }
-          else if(found !== undefined) {
-            response = found;
-          }
-          if($.isArray(returnedValue)) {
-            returnedValue.push(response);
-          }
-          else if(returnedValue !== undefined) {
-            returnedValue = [returnedValue, response];
-          }
-          else if(response !== undefined) {
-            returnedValue = response;
-          }
-          return found;
-        }
-      };
-
-      if(methodInvoked) {
-        if(instance === undefined) {
-          module.initialize();
-        }
-        module.invoke(query);
-      }
-      else {
-        if(instance !== undefined) {
-          module.destroy();
-        }
-        module.initialize();
-      }
-    })
-  ;
-
-  return (returnedValue !== undefined)
-    ? returnedValue
-    : this
-  ;
-};
-
-$.fn.shape.settings = {
-
-  // module info
-  name : 'Shape',
-
-  // debug content outputted to console
-  debug      : false,
-
-  // verbose debug output
-  verbose    : true,
-
-  // performance data output
-  performance: true,
-
-  // event namespace
-  namespace  : 'shape',
-
-  // callback occurs on side change
-  beforeChange : function() {},
-  onChange     : function() {},
-
-  // allow animation to same side
-  allowRepeats: false,
-
-  // animation duration
-  duration   : 700,
-
-  // possible errors
-  error: {
-    side   : 'You tried to switch to a side that does not exist.',
-    method : 'The method you called is not defined'
-  },
-
-  // classnames used
-  className   : {
-    animating : 'animating',
-    hidden    : 'hidden',
-    loading   : 'loading',
-    active    : 'active'
-  },
-
-  // selectors used
-  selector    : {
-    sides : '.sides',
-    side  : '.side'
-  }
-
-};
-
-
-})( jQuery, window , document );
-/*
- * # Semantic - Progress
- * http://github.com/semantic-org/semantic-ui/
- *
- *
- * Copyright 2014 Contributor
- * Released under the MIT license
- * http://opensource.org/licenses/MIT
- *
- */
-
-;(function ( $, window, document, undefined ) {
-
-"use strict";
-
-$.fn.progress = function(parameters) {
-  var
-    $allModules    = $(this),
-
-    moduleSelector = $allModules.selector || '',
-
-    hasTouch       = ('ontouchstart' in document.documentElement),
-    time           = new Date().getTime(),
-    performance    = [],
-
-    query          = arguments[0],
-    methodInvoked  = (typeof query == 'string'),
-    queryArguments = [].slice.call(arguments, 1),
-    returnedValue
-  ;
-
-  $allModules
-    .each(function() {
-      var
-        settings          = ( $.isPlainObject(parameters) )
-          ? $.extend(true, {}, $.fn.progress.settings, parameters)
-          : $.extend({}, $.fn.progress.settings),
-
-        className       = settings.className,
-        metadata        = settings.metadata,
-        namespace       = settings.namespace,
-        selector        = settings.selector,
-        error           = settings.error,
-
-        eventNamespace  = '.' + namespace,
-        moduleNamespace = 'module-' + namespace,
-
-        $module         = $(this),
-        $bar            = $(this).find(selector.bar),
-        $progress       = $(this).find(selector.progress),
-        $label          = $(this).find(selector.label),
-
-        element         = this,
-        instance        = $module.data(moduleNamespace),
-        module
-      ;
-
-      module = {
-
-        initialize: function() {
-          module.debug('Initializing progress', settings);
-          module.read.metadata();
-          module.set.initials();
-          module.instantiate();
-        },
-
-        instantiate: function() {
-          module.verbose('Storing instance of progress', module);
-          instance = module;
-          $module
-            .data(moduleNamespace, module)
-          ;
-        },
-
-        destroy: function() {
-          module.verbose('Destroying previous dropdown for', $module);
-          $module
-            .removeData(moduleNamespace)
-          ;
-          instance = undefined;
-        },
-
-        reset: function() {
-          module.set.percent(0);
-        },
-
-        complete: function() {
-          if(module.percent === undefined || module.percent < 100) {
-            module.set.percent(100);
-          }
-        },
-
-        read: {
-          metadata: function() {
-            if( $module.data(metadata.percent) ) {
-              module.verbose('Current percent value set from metadata');
-              module.percent = $module.data(metadata.percent);
-            }
-            if( $module.data(metadata.total) ) {
-              module.verbose('Total value set from metadata');
-              module.total = $module.data(metadata.total);
-            }
-            if( $module.data(metadata.value) ) {
-              module.verbose('Current value set from metadata');
-              module.value = $module.data(metadata.value);
-            }
-          },
-          currentValue: function() {
-            return (module.value !== undefined)
-              ? module.value
-              : false
-            ;
-          }
-        },
-
-        increment: function(incrementValue) {
-          var
-            total          = module.total || false,
-            edgeValue,
-            startValue,
-            newValue
-          ;
-          if(total) {
-            startValue     = module.value || 0;
-            incrementValue = incrementValue || 1;
-            newValue       = startValue + incrementValue;
-            edgeValue      = module.total;
-            module.debug('Incrementing value by', incrementValue, startValue, edgeValue);
-            if(newValue > edgeValue ) {
-              module.debug('Value cannot increment above total', edgeValue);
-              newValue = edgeValue;
-            }
-            module.set.progress(newValue);
-          }
-          else {
-            startValue     = module.percent || 0;
-            incrementValue = incrementValue || module.get.randomValue();
-            newValue       = startValue + incrementValue;
-            edgeValue      = 100;
-            module.debug('Incrementing percentage by', incrementValue, startValue);
-            if(newValue > edgeValue ) {
-              module.debug('Value cannot increment above 100 percent');
-              newValue = edgeValue;
-            }
-            module.set.progress(newValue);
-          }
-        },
-        decrement: function(decrementValue) {
-          var
-            total     = module.total || false,
-            edgeValue = 0,
-            startValue,
-            newValue
-          ;
-          if(total) {
-            startValue     =  module.value   || 0;
-            decrementValue =  decrementValue || 1;
-            newValue       =  startValue - decrementValue;
-            module.debug('Decrementing value by', decrementValue, startValue);
-          }
-          else {
-            startValue     =  module.percent || 0;
-            decrementValue =  decrementValue || module.get.randomValue();
-            newValue       =  startValue - decrementValue;
-            module.debug('Decrementing percentage by', decrementValue, startValue);
-          }
-
-          if(newValue < edgeValue) {
-            module.debug('Value cannot decrement below 0');
-            newValue = 0;
-          }
-          module.set.progress(newValue);
-        },
-
-        get: {
-          text: function(templateText) {
-            var
-              value   = module.value || 0,
-              total   = module.total || 0,
-              percent = module.percent || 0
-            ;
-            templateText = templateText || '';
-            templateText = templateText
-              .replace('{value}', value)
-              .replace('{total}', total)
-              .replace('{percent}', percent)
-            ;
-            module.debug('Adding variables to progress bar text', templateText);
-            return templateText;
-          },
-          randomValue: function() {
-            module.debug('Generating random increment percentage');
-            return Math.floor((Math.random() * settings.random.max) + settings.random.min);
-          },
-          percent: function() {
-            return module.percent || 0;
-          },
-          value: function() {
-            return module.value || false;
-          },
-          total: function() {
-            return module.total || false;
           }
         },
 
         is: {
-          success: function() {
-            return $module.hasClass(className.success);
-          },
-          warning: function() {
-            return $module.hasClass(className.warning);
-          },
-          error: function() {
-            return $module.hasClass(className.error);
-          }
-        },
-
-        remove: {
-          active: function() {
-            module.verbose('Removing active state');
-            $module.removeClass(className.active);
-          },
-          success: function() {
-            module.verbose('Removing success state');
-            $module.removeClass(className.success);
-          },
-          warning: function() {
-            module.verbose('Removing warning state');
-            $module.removeClass(className.warning);
-          },
-          error: function() {
-            module.verbose('Removing error state');
-            $module.removeClass(className.error);
-          }
-        },
-
-        set: {
-          barWidth: function(value) {
-            if(value > 100) {
-              module.error(error.tooHigh, value);
-            }
-            $bar
-              .css('width', value + '%')
-            ;
-          },
-          initials: function() {
-            if(settings.value) {
-              module.verbose('Current value set in settings', settings.value);
-              module.value = settings.value;
-            }
-            if(settings.total) {
-              module.verbose('Current total set in settings', settings.total);
-              module.total = settings.total;
-            }
-            if(settings.percent) {
-              module.verbose('Current percent set in settings', settings.percent);
-              module.percent = settings.percent;
-            }
-            if(module.percent) {
-              module.set.percent(module.percent);
-            }
-            else if(module.value) {
-              module.set.progress(module.value);
-            }
-          },
-          percent: function(percent) {
-            percent = (typeof percent == 'string')
-              ? +(percent.replace('%', ''))
-              : percent
-            ;
-            if(percent > 0 && percent < 1) {
-              module.verbose('Module percentage passed as decimal, converting');
-              percent = percent * 100;
-            }
-            // round percentage
-            if(settings.precision === 0) {
-              percent = Math.round(percent);
-            }
-            else {
-              percent = Math.round(percent * (10 * settings.precision) / (10 * settings.precision) );
-            }
-            module.percent = percent;
-            if(module.total) {
-              module.value = Math.round( (percent / 100) * module.total);
-            }
-            module.set.barWidth(percent);
-            module.set.barLabel();
-            if(percent === 100) {
-              if(settings.autoSuccess && !(module.is.warning() || module.is.error())) {
-                module.set.success();
-                module.debug('Automatically triggering success at 100%');
-              }
-              else {
-                module.remove.active();
-              }
-            }
-            else {
-              module.set.active();
-            }
-            $.proxy(settings.onChange, element)(percent, module.value, module.total);
-          },
-          label: function(text) {
-            text = text || '';
-            if(text) {
-              text = module.get.text(text);
-              module.debug('Setting label to text', text);
-              $label.text(text);
-            }
-          },
-          barLabel: function(text) {
-            if(text !== undefined) {
-              $progress.text( module.get.text(text) );
-            }
-            else if(settings.label == 'ratio' && module.total) {
-              module.debug('Adding ratio to bar label');
-              $progress.text( module.get.text(settings.text.ratio) );
-            }
-            else if(settings.label == 'percent') {
-              module.debug('Adding percentage to bar label');
-              $progress.text( module.get.text(settings.text.percent) );
-            }
-          },
-          active: function(text) {
-            text = text || settings.text.active;
-            module.debug('Setting active state');
-            if(settings.showActivity) {
-              $module.addClass(className.active);
-            }
-            module.remove.warning();
-            module.remove.error();
-            module.remove.success();
-            if(text) {
-              module.set.label(text);
-            }
-            $.proxy(settings.onActive, element)(module.value, module.total);
-          },
-          success : function(text) {
-            text = text || settings.text.success;
-            module.debug('Setting success state');
-            $module.addClass(className.success);
-            module.remove.active();
-            module.remove.warning();
-            module.remove.error();
-            module.complete();
-            if(text) {
-              module.set.label(text);
-            }
-            $.proxy(settings.onSuccess, element)(module.total);
-          },
-          warning : function(text) {
-            text = text || settings.text.warning;
-            module.debug('Setting warning state');
-            $module.addClass(className.warning);
-            module.remove.active();
-            module.remove.success();
-            module.remove.error();
-            module.complete();
-            if(text) {
-              module.set.label(text);
-            }
-            $.proxy(settings.onWarning, element)(module.value, module.total);
-          },
-          error : function(text) {
-            text = text || settings.text.error;
-            module.debug('Setting error state');
-            $module.addClass(className.error);
-            module.remove.active();
-            module.remove.success();
-            module.remove.warning();
-            module.complete();
-            if(text) {
-              module.set.label(text);
-            }
-            $.proxy(settings.onError, element)(module.value, module.total);
-          },
-          total: function(totalValue) {
-            module.total = totalValue;
-          },
-          progress: function(value) {
+          legacy: function() {
             var
-              numericValue = (typeof value === 'string')
-                ? (value.replace(/[^\d.]/g, '') !== '')
-                  ? +(value.replace(/[^\d.]/g, ''))
-                  : false
-                : value,
-              percentComplete
+              element    = document.createElement('div'),
+              transforms = {
+                'webkitTransform' :'-webkit-transform',
+                'OTransform'      :'-o-transform',
+                'msTransform'     :'-ms-transform',
+                'MozTransform'    :'-moz-transform',
+                'transform'       :'transform'
+              },
+              has3D
             ;
-            if(!numericValue) {
-              module.error(error.nonNumeric);
+
+            // Add it to the body to get the computed style.
+            document.body.insertBefore(element, null);
+            for (var transform in transforms) {
+              if (element.style[transform] !== undefined) {
+                element.style[transform] = "translate3d(1px,1px,1px)";
+                has3D = window.getComputedStyle(element).getPropertyValue(transforms[transform]);
+              }
             }
-            if(module.total) {
-              module.value    = numericValue;
-              percentComplete = (numericValue / module.total) * 100;
-              module.debug('Calculating percent complete from total', percentComplete);
-              module.set.percent( percentComplete );
+            document.body.removeChild(element);
+            return !(has3D !== undefined && has3D.length > 0 && has3D !== 'none');
+          },
+          mobile: function() {
+            var
+              userAgent    = navigator.userAgent,
+              mobileRegExp = /Mobile|iP(hone|od|ad)|Android|BlackBerry|IEMobile|Kindle|NetFront|Silk-Accelerated|(hpw|web)OS|Fennec|Minimo|Opera M(obi|ini)|Blazer|Dolfin|Dolphin|Skyfire|Zune/,
+              isMobile     = mobileRegExp.test(userAgent)
+            ;
+            if(isMobile) {
+              module.verbose('Browser was found to be mobile', userAgent);
+              return true;
             }
             else {
-              percentComplete = numericValue;
-              module.debug('Setting value to exact percentage value', percentComplete);
-              module.set.percent( percentComplete );
+              module.verbose('Browser is not mobile, using regular transition', userAgent);
+              return false;
             }
+          },
+          closed: function() {
+            return !module.is.visible();
+          },
+          visible: function() {
+            return $module.hasClass(className.visible);
+          },
+          vertical: function() {
+            return $module.hasClass(className.top);
+          },
+          animating: function() {
+            return $context.hasClass(className.animating);
           }
         },
 
@@ -8927,6 +8961,819 @@ $.fn.progress = function(parameters) {
           }
           return found;
         }
+      }
+    ;
+
+    if(methodInvoked) {
+      if(instance === undefined) {
+        module.initialize();
+      }
+      module.invoke(query);
+    }
+    else {
+      if(instance !== undefined) {
+        module.invoke('destroy');
+      }
+      module.initialize();
+    }
+  });
+
+  return (returnedValue !== undefined)
+    ? returnedValue
+    : this
+  ;
+};
+
+$.fn.sidebar.settings = {
+
+  name              : 'Sidebar',
+  namespace         : 'sidebar',
+
+  debug             : false,
+  verbose           : true,
+  performance       : true,
+
+  transition        : 'auto',
+  mobileTransition  : 'auto',
+
+  defaultTransition : {
+    computer: {
+      left   : 'push',
+      right  : 'push',
+      top    : 'overlay',
+      bottom : 'overlay'
+    },
+    mobile: {
+      left   : 'push',
+      right  : 'push',
+      top    : 'overlay',
+      bottom : 'overlay'
+    }
+  },
+
+  context           : 'body',
+  exclusive         : false,
+  closable          : true,
+  dimPage           : true,
+  scrollLock        : false,
+  returnScroll      : false,
+
+  useLegacy         : false,
+  duration          : 500,
+  easing            : 'easeInOutQuint',
+
+  onChange          : function(){},
+  onShow            : function(){},
+  onHide            : function(){},
+
+  onHidden          : function(){},
+  onVisible         : function(){},
+
+  className         : {
+    active    : 'active',
+    animating : 'animating',
+    dimmed    : 'dimmed',
+    pushable  : 'pushable',
+    pushed    : 'pushed',
+    right     : 'right',
+    top       : 'top',
+    left      : 'left',
+    bottom    : 'bottom',
+    visible   : 'visible'
+  },
+
+  selector: {
+    fixed   : '.fixed',
+    omitted : 'script, link, style, .ui.modal, .ui.dimmer, .ui.nag, .ui.fixed',
+    pusher  : '.pusher',
+    sidebar : '.ui.sidebar'
+  },
+
+  error   : {
+    method       : 'The method you called is not defined.',
+    pusher       : 'Had to add pusher element. For optimal performance make sure body content is inside a pusher element',
+    movedSidebar : 'Had to move sidebar. For optimal performance make sure sidebar and pusher are direct children of your body tag',
+    overlay      : 'The overlay setting is no longer supported, use animation: overlay',
+    notFound     : 'There were no elements that matched the specified selector'
+  }
+
+};
+
+// Adds easing
+$.extend( $.easing, {
+  easeInOutQuint: function (x, t, b, c, d) {
+    if ((t/=d/2) < 1) return c/2*t*t*t*t*t + b;
+    return c/2*((t-=2)*t*t*t*t + 2) + b;
+  }
+});
+
+
+})( jQuery, window , document );
+
+ /*
+ * # Semantic - Sticky
+ * http://github.com/semantic-org/semantic-ui/
+ *
+ *
+ * Copyright 2014 Contributors
+ * Released under the MIT license
+ * http://opensource.org/licenses/MIT
+ *
+ */
+
+;(function ( $, window, document, undefined ) {
+
+"use strict";
+
+$.fn.sticky = function(parameters) {
+  var
+    $allModules    = $(this),
+    moduleSelector = $allModules.selector || '',
+
+    time           = new Date().getTime(),
+    performance    = [],
+
+    query          = arguments[0],
+    methodInvoked  = (typeof query == 'string'),
+    queryArguments = [].slice.call(arguments, 1),
+    returnedValue
+  ;
+
+  $allModules
+    .each(function() {
+      var
+        settings              = $.extend(true, {}, $.fn.sticky.settings, parameters),
+
+        className             = settings.className,
+        namespace             = settings.namespace,
+        error                 = settings.error,
+
+        eventNamespace        = '.' + namespace,
+        moduleNamespace       = 'module-' + namespace,
+
+        $module               = $(this),
+        $window               = $(window),
+        $container            = $module.offsetParent(),
+        $scroll               = $(settings.scrollContext),
+        $context,
+
+        selector              = $module.selector || '',
+        instance              = $module.data(moduleNamespace),
+
+        requestAnimationFrame = window.requestAnimationFrame
+          || window.mozRequestAnimationFrame
+          || window.webkitRequestAnimationFrame
+          || window.msRequestAnimationFrame
+          || function(callback) { setTimeout(callback, 0); },
+
+        element         = this,
+        observer,
+        module
+      ;
+
+      module      = {
+
+        initialize: function() {
+          if(settings.context) {
+            $context = $(settings.context);
+          }
+          else {
+            $context = $container;
+          }
+          if($context.size() === 0) {
+            module.error(error.invalidContext, settings.context, $module);
+            return;
+          }
+          module.verbose('Initializing sticky', settings, $container);
+          module.save.positions();
+
+          // error conditions
+          if( module.is.hidden() ) {
+            module.error(error.visible, $module);
+          }
+          if(module.cache.element.height > module.cache.context.height) {
+            module.reset();
+            module.error(error.elementSize, $module);
+            return;
+          }
+
+          $window
+            .on('resize' + eventNamespace, module.event.resize)
+          ;
+          $scroll
+            .on('scroll' + eventNamespace, module.event.scroll)
+          ;
+
+          module.observeChanges();
+          module.instantiate();
+        },
+
+        instantiate: function() {
+          module.verbose('Storing instance of module', module);
+          instance = module;
+          $module
+            .data(moduleNamespace, module)
+          ;
+        },
+
+        destroy: function() {
+          module.verbose('Destroying previous module');
+          module.reset();
+          $window
+            .off('resize' + eventNamespace, module.event.resize)
+          ;
+          $scroll
+            .off('scroll' + eventNamespace, module.event.scroll)
+          ;
+          $module
+            .removeData(moduleNamespace)
+          ;
+        },
+
+        observeChanges: function() {
+          var
+            context = $context[0]
+          ;
+          if('MutationObserver' in window) {
+            observer = new MutationObserver(function(mutations) {
+              clearTimeout(module.timer);
+              module.timer = setTimeout(function() {
+                module.verbose('DOM tree modified, updating sticky menu');
+                module.refresh();
+              }, 200);
+            });
+            observer.observe(element, {
+              childList : true,
+              subtree   : true
+            });
+            observer.observe(context, {
+              childList : true,
+              subtree   : true
+            });
+            module.debug('Setting up mutation observer', observer);
+          }
+        },
+
+        event: {
+          resize: function() {
+            requestAnimationFrame(function() {
+              module.refresh();
+              module.stick();
+            });
+          },
+          scroll: function() {
+            requestAnimationFrame(function() {
+              module.stick();
+              $.proxy(settings.onScroll, element)();
+            });
+          }
+        },
+
+        refresh: function(hardRefresh) {
+          module.reset();
+          if(hardRefresh) {
+            $container = $module.offsetParent();
+          }
+          module.save.positions();
+          module.stick();
+          $.proxy(settings.onReposition, element)();
+        },
+
+        supports: {
+          sticky: function() {
+            var
+              $element = $('<div/>'),
+              element = $element.get()
+            ;
+            $element
+              .addClass(className.supported)
+            ;
+            return($element.css('position').match('sticky'));
+          }
+        },
+
+        save: {
+          scroll: function(scroll) {
+            module.lastScroll = scroll;
+          },
+          positions: function() {
+            var
+              window = {
+                height: $window.height()
+              },
+              element = {
+                margin: {
+                  top    : parseInt($module.css('margin-top'), 10),
+                  bottom : parseInt($module.css('margin-bottom'), 10),
+                },
+                offset : $module.offset(),
+                width  : $module.outerWidth(),
+                height : $module.outerHeight()
+              },
+              context = {
+                offset: $context.offset(),
+                height: $context.outerHeight()
+              }
+            ;
+            module.cache = {
+              fits : ( element.height < window.height ),
+              window: {
+                height: window.height
+              },
+              element: {
+                margin : element.margin,
+                top    : element.offset.top - element.margin.top,
+                left   : element.offset.left,
+                width  : element.width,
+                height : element.height,
+                bottom : element.offset.top + element.height
+              },
+              context: {
+                top    : context.offset.top,
+                height : context.height,
+                bottom : context.offset.top + context.height
+              }
+            };
+            module.set.containerSize();
+            module.set.size();
+            module.stick();
+            module.debug('Caching element positions', module.cache);
+          }
+        },
+
+        get: {
+          direction: function(scroll) {
+            var
+              direction = 'down'
+            ;
+            scroll = scroll || $scroll.scrollTop();
+            if(module.lastScroll !== undefined) {
+              if(module.lastScroll < scroll) {
+                direction = 'down';
+              }
+              else if(module.lastScroll > scroll) {
+                direction = 'up';
+              }
+            }
+            return direction;
+          },
+          scrollChange: function(scroll) {
+            scroll = scroll || $scroll.scrollTop();
+            return (module.lastScroll)
+              ? (scroll - module.lastScroll)
+              : 0
+            ;
+          },
+          currentElementScroll: function() {
+            return ( module.is.top() )
+              ? Math.abs(parseInt($module.css('top'), 10))    || 0
+              : Math.abs(parseInt($module.css('bottom'), 10)) || 0
+            ;
+          },
+          elementScroll: function(scroll) {
+            scroll = scroll || $scroll.scrollTop();
+            var
+              element        = module.cache.element,
+              window         = module.cache.window,
+              delta          = module.get.scrollChange(scroll),
+              maxScroll      = (element.height - window.height + settings.offset),
+              currentScroll  = module.get.currentElementScroll(),
+              possibleScroll = (currentScroll + delta),
+              elementScroll
+            ;
+            if(module.cache.fits || possibleScroll < 0) {
+              elementScroll = 0;
+            }
+            else if (possibleScroll > maxScroll ) {
+              elementScroll = maxScroll;
+            }
+            else {
+              elementScroll = possibleScroll;
+            }
+            return elementScroll;
+          }
+        },
+
+        remove: {
+          offset: function() {
+            $module.css('margin-top', '');
+          }
+        },
+
+        set: {
+          offset: function() {
+            module.verbose('Setting offset on element', settings.offset);
+            $module.css('margin-top', settings.offset);
+          },
+          containerSize: function() {
+            var
+              tagName = $container.get(0).tagName
+            ;
+            if(tagName === 'HTML' || tagName == 'body') {
+              // this can trigger for too many reasons
+              //module.error(error.container, tagName, $module);
+              $container = $module.offsetParent();
+            }
+            else {
+              module.debug('Settings container size', module.cache.context.height);
+              $container.height(module.cache.context.height);
+            }
+          },
+          scroll: function(scroll) {
+            module.debug('Setting scroll on element', scroll);
+            if( module.is.top() ) {
+              $module
+                .css('bottom', '')
+                .css('top', -scroll)
+              ;
+            }
+            if( module.is.bottom() ) {
+              $module
+                .css('top', '')
+                .css('bottom', scroll)
+              ;
+            }
+          },
+          size: function() {
+            if(module.cache.element.height !== 0 && module.cache.element.width !== 0) {
+              $module
+                .css({
+                  width  : module.cache.element.width,
+                  height : module.cache.element.height
+                })
+              ;
+            }
+          }
+        },
+
+        is: {
+          top: function() {
+            return $module.hasClass(className.top);
+          },
+          bottom: function() {
+            return $module.hasClass(className.bottom);
+          },
+          initialPosition: function() {
+            return (!module.is.fixed() && !module.is.bound());
+          },
+          hidden: function() {
+            return (!$module.is(':visible'));
+          },
+          bound: function() {
+            return $module.hasClass(className.bound);
+          },
+          fixed: function() {
+            return $module.hasClass(className.fixed);
+          }
+        },
+
+        stick: function() {
+          var
+            cache          = module.cache,
+            fits           = cache.fits,
+            element        = cache.element,
+            window         = cache.window,
+            context        = cache.context,
+            scroll         = {
+              top    : $scroll.scrollTop() + settings.offset,
+              bottom : $scroll.scrollTop() + settings.offset + window.height
+            },
+            direction      = module.get.direction(scroll.top),
+            elementScroll  = module.get.elementScroll(scroll.top),
+
+            // shorthand
+            doesntFit      = !fits,
+            elementVisible = (element.height !== 0)
+          ;
+
+          // save current scroll for next run
+          module.save.scroll(scroll.top);
+
+          if(elementVisible) {
+
+            if( module.is.initialPosition() ) {
+              if(scroll.top >= element.top) {
+                module.debug('Element passed, fixing element to page');
+                module.fixTop();
+              }
+            }
+            else if( module.is.fixed() ) {
+
+              // currently fixed top
+              if( module.is.top() ) {
+                if( scroll.top < element.top ) {
+                  module.debug('Fixed element reached top of container');
+                  module.setInitialPosition();
+                }
+                else if( (element.height + scroll.top - elementScroll) > context.bottom ) {
+                  module.debug('Fixed element reached bottom of container');
+                  module.bindBottom();
+                }
+                // scroll element if larger than screen
+                else if(doesntFit) {
+                  module.set.scroll(elementScroll);
+                }
+              }
+
+              // currently fixed bottom
+              else if(module.is.bottom() ) {
+
+                // top edge
+                if( (scroll.bottom - element.height) < element.top) {
+                  module.debug('Bottom fixed rail has reached top of container');
+                  module.setInitialPosition();
+                }
+                // bottom edge
+                else if(scroll.bottom > context.bottom) {
+                  module.debug('Bottom fixed rail has reached bottom of container');
+                  module.bindBottom();
+                }
+                // scroll element if larger than screen
+                else if(doesntFit) {
+                  module.set.scroll(elementScroll);
+                }
+
+              }
+            }
+            else if( module.is.bottom() ) {
+              // fix to bottom of screen on way back up
+              if( module.is.bottom() ) {
+                if(settings.pushing) {
+                  if(module.is.bound() && scroll.bottom < context.bottom ) {
+                    module.debug('Fixing bottom attached element to bottom of browser.');
+                    module.fixBottom();
+                  }
+                }
+                else {
+                  if(module.is.bound() && (scroll.top < context.bottom - element.height) ) {
+                    module.debug('Fixing bottom attached element to top of browser.');
+                    module.fixTop();
+                  }
+                }
+              }
+            }
+          }
+        },
+
+        bindTop: function() {
+          module.debug('Binding element to top of parent container');
+          module.remove.offset();
+          $module
+            .css('left' , '')
+            .css('top' , '')
+            .css('bottom' , '')
+            .removeClass(className.fixed)
+            .removeClass(className.bottom)
+            .addClass(className.bound)
+            .addClass(className.top)
+          ;
+          $.proxy(settings.onTop, element)();
+          $.proxy(settings.onUnstick, element)();
+        },
+        bindBottom: function() {
+          module.debug('Binding element to bottom of parent container');
+          module.remove.offset();
+          $module
+            .css('left' , '')
+            .css('top' , '')
+            .css('bottom' , '')
+            .removeClass(className.fixed)
+            .removeClass(className.top)
+            .addClass(className.bound)
+            .addClass(className.bottom)
+          ;
+          $.proxy(settings.onBottom, element)();
+          $.proxy(settings.onUnstick, element)();
+        },
+
+        setInitialPosition: function() {
+          module.unfix();
+          module.unbind();
+        },
+
+
+        fixTop: function() {
+          module.debug('Fixing element to top of page');
+          module.set.offset();
+          $module
+            .css('left', module.cache.element.left)
+            .removeClass(className.bound)
+            .removeClass(className.bottom)
+            .addClass(className.fixed)
+            .addClass(className.top)
+          ;
+          $.proxy(settings.onStick, element)();
+        },
+
+        fixBottom: function() {
+          module.debug('Sticking element to bottom of page');
+          module.set.offset();
+          $module
+            .css('left', module.cache.element.left)
+            .removeClass(className.bound)
+            .removeClass(className.top)
+            .addClass(className.fixed)
+            .addClass(className.bottom)
+          ;
+          $.proxy(settings.onStick, element)();
+        },
+
+        unbind: function() {
+          module.debug('Removing absolute position on element');
+          module.remove.offset();
+          $module
+            .removeClass(className.bound)
+            .removeClass(className.top)
+            .removeClass(className.bottom)
+          ;
+        },
+
+        unfix: function() {
+          module.debug('Removing fixed position on element');
+          module.remove.offset();
+          $module
+            .removeClass(className.fixed)
+            .removeClass(className.top)
+            .removeClass(className.bottom)
+          ;
+          $.proxy(settings.onUnstick, this)();
+        },
+
+        reset: function() {
+          module.debug('Reseting elements position');
+          module.unbind();
+          module.unfix();
+          module.resetCSS();
+        },
+
+        resetCSS: function() {
+          $module
+            .css({
+              top    : '',
+              bottom : '',
+              width  : '',
+              height : ''
+            })
+          ;
+          $container
+            .css({
+              height: ''
+            })
+          ;
+        },
+
+        setting: function(name, value) {
+          if( $.isPlainObject(name) ) {
+            $.extend(true, settings, name);
+          }
+          else if(value !== undefined) {
+            settings[name] = value;
+          }
+          else {
+            return settings[name];
+          }
+        },
+        internal: function(name, value) {
+          if( $.isPlainObject(name) ) {
+            $.extend(true, module, name);
+          }
+          else if(value !== undefined) {
+            module[name] = value;
+          }
+          else {
+            return module[name];
+          }
+        },
+        debug: function() {
+          if(settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.debug.apply(console, arguments);
+            }
+          }
+        },
+        verbose: function() {
+          if(settings.verbose && settings.debug) {
+            if(settings.performance) {
+              module.performance.log(arguments);
+            }
+            else {
+              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
+              module.verbose.apply(console, arguments);
+            }
+          }
+        },
+        error: function() {
+          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
+          module.error.apply(console, arguments);
+        },
+        performance: {
+          log: function(message) {
+            var
+              currentTime,
+              executionTime,
+              previousTime
+            ;
+            if(settings.performance) {
+              currentTime   = new Date().getTime();
+              previousTime  = time || currentTime;
+              executionTime = currentTime - previousTime;
+              time          = currentTime;
+              performance.push({
+                'Name'           : message[0],
+                'Arguments'      : [].slice.call(message, 1) || '',
+                'Element'        : element,
+                'Execution Time' : executionTime
+              });
+            }
+            clearTimeout(module.performance.timer);
+            module.performance.timer = setTimeout(module.performance.display, 0);
+          },
+          display: function() {
+            var
+              title = settings.name + ':',
+              totalTime = 0
+            ;
+            time = false;
+            clearTimeout(module.performance.timer);
+            $.each(performance, function(index, data) {
+              totalTime += data['Execution Time'];
+            });
+            title += ' ' + totalTime + 'ms';
+            if(moduleSelector) {
+              title += ' \'' + moduleSelector + '\'';
+            }
+            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
+              console.groupCollapsed(title);
+              if(console.table) {
+                console.table(performance);
+              }
+              else {
+                $.each(performance, function(index, data) {
+                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
+                });
+              }
+              console.groupEnd();
+            }
+            performance = [];
+          }
+        },
+        invoke: function(query, passedArguments, context) {
+          var
+            object = instance,
+            maxDepth,
+            found,
+            response
+          ;
+          passedArguments = passedArguments || queryArguments;
+          context         = element         || context;
+          if(typeof query == 'string' && object !== undefined) {
+            query    = query.split(/[\. ]/);
+            maxDepth = query.length - 1;
+            $.each(query, function(depth, value) {
+              var camelCaseValue = (depth != maxDepth)
+                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
+                : query
+              ;
+              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
+                object = object[camelCaseValue];
+              }
+              else if( object[camelCaseValue] !== undefined ) {
+                found = object[camelCaseValue];
+                return false;
+              }
+              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
+                object = object[value];
+              }
+              else if( object[value] !== undefined ) {
+                found = object[value];
+                return false;
+              }
+              else {
+                return false;
+              }
+            });
+          }
+          if ( $.isFunction( found ) ) {
+            response = found.apply(context, passedArguments);
+          }
+          else if(found !== undefined) {
+            response = found;
+          }
+          if($.isArray(returnedValue)) {
+            returnedValue.push(response);
+          }
+          else if(returnedValue !== undefined) {
+            returnedValue = [returnedValue, response];
+          }
+          else if(response !== undefined) {
+            returnedValue = response;
+          }
+          return found;
+        }
       };
 
       if(methodInvoked) {
@@ -8950,77 +9797,48 @@ $.fn.progress = function(parameters) {
   ;
 };
 
-$.fn.progress.settings = {
+$.fn.sticky.settings = {
 
-  name         : 'Progress',
-  namespace    : 'progress',
+  name          : 'Sticky',
+  namespace     : 'sticky',
 
-  debug        : false,
-  verbose      : true,
-  performance  : true,
+  debug         : false,
+  verbose       : false,
+  performance   : false,
 
-  random       : {
-    min : 2,
-    max : 5
-  },
+  pushing       : false,
 
-  autoSuccess  : true,
-  showActivity : true,
+  context       : false,
+  scrollContext : window,
+  offset        : 0,
 
-  label        : 'percent',
-  precision    : 1,
+  onReposition  : function(){},
+  onScroll      : function(){},
+  onStick       : function(){},
+  onUnstick     : function(){},
+  onTop         : function(){},
+  onBottom      : function(){},
 
-  percent      : false,
-  total        : false,
-  value        : false,
-
-  onChange     : function(percent, value, total){},
-  onSuccess    : function(total){},
-  onActive     : function(value, total){},
-  onError      : function(value, total){},
-  onWarning    : function(value, total){},
-
-  error    : {
-    method     : 'The method you called is not defined.',
-    nonNumeric : 'Progress value is non numeric'
-  },
-
-  regExp: {
-    variable: /\{\$*[A-z0-9]+\}/g
-  },
-
-  metadata: {
-    percent : 'percent',
-    total   : 'total',
-    value   : 'value'
-  },
-
-  selector : {
-    bar      : '> .bar',
-    label    : '> .label',
-    progress : '.bar > .progress'
-  },
-
-  text : {
-    active  : false,
-    error   : false,
-    success : false,
-    warning : false,
-    percent : '{percent}%',
-    ratio   : '{value} of {total}'
+  error         : {
+    container      : 'Sticky element must be inside a relative container',
+    visible        : 'Element is hidden, you must call refresh after element becomes visible',
+    method         : 'The method you called is not defined.',
+    invalidContext : 'Context specified does not exist',
+    elementSize    : 'Sticky element is larger than its container, cannot create sticky.'
   },
 
   className : {
-    active  : 'active',
-    error   : 'error',
-    success : 'success',
-    warning : 'warning'
+    bound     : 'bound',
+    fixed     : 'fixed',
+    supported : 'native',
+    top       : 'top',
+    bottom    : 'bottom'
   }
 
 };
 
-
 })( jQuery, window , document );
+
  /*
  * # Semantic - Tab
  * http://github.com/semantic-org/semantic-ui/
@@ -9818,775 +10636,6 @@ $.fn.tab.settings = {
 };
 
 })( jQuery, window , document );
- /*
- * # Semantic - Sticky
- * http://github.com/semantic-org/semantic-ui/
- *
- *
- * Copyright 2014 Contributors
- * Released under the MIT license
- * http://opensource.org/licenses/MIT
- *
- */
-
-;(function ( $, window, document, undefined ) {
-
-"use strict";
-
-$.fn.sticky = function(parameters) {
-  var
-    $allModules    = $(this),
-    moduleSelector = $allModules.selector || '',
-
-    time           = new Date().getTime(),
-    performance    = [],
-
-    query          = arguments[0],
-    methodInvoked  = (typeof query == 'string'),
-    queryArguments = [].slice.call(arguments, 1),
-    returnedValue
-  ;
-
-  $allModules
-    .each(function() {
-      var
-        settings              = $.extend(true, {}, $.fn.sticky.settings, parameters),
-
-        className             = settings.className,
-        namespace             = settings.namespace,
-        error                 = settings.error,
-
-        eventNamespace        = '.' + namespace,
-        moduleNamespace       = 'module-' + namespace,
-
-        $module               = $(this),
-        $window               = $(window),
-        $container            = $module.offsetParent(),
-        $scroll               = $(settings.scrollContext),
-        $context,
-
-        selector              = $module.selector || '',
-        instance              = $module.data(moduleNamespace),
-
-        requestAnimationFrame = window.requestAnimationFrame
-          || window.mozRequestAnimationFrame
-          || window.webkitRequestAnimationFrame
-          || window.msRequestAnimationFrame
-          || function(callback) { setTimeout(callback, 0); },
-
-        element         = this,
-        observer,
-        module
-      ;
-
-      module      = {
-
-        initialize: function() {
-          if(settings.context) {
-            $context = $(settings.context);
-          }
-          else {
-            $context = $container;
-          }
-          if($context.size() === 0) {
-            module.error(error.invalidContext, settings.context, $module);
-            return;
-          }
-          module.verbose('Initializing sticky', settings, $container);
-          module.save.positions();
-
-          // error conditions
-          if( module.is.hidden() ) {
-            module.error(error.visible, $module);
-          }
-          if(module.cache.element.height > module.cache.context.height) {
-            module.reset();
-            module.error(error.elementSize, $module);
-            return;
-          }
-
-          $window
-            .on('resize' + eventNamespace, module.event.resize)
-          ;
-          $scroll
-            .on('scroll' + eventNamespace, module.event.scroll)
-          ;
-
-          module.observeChanges();
-          module.instantiate();
-        },
-
-        instantiate: function() {
-          module.verbose('Storing instance of module', module);
-          instance = module;
-          $module
-            .data(moduleNamespace, module)
-          ;
-        },
-
-        destroy: function() {
-          module.verbose('Destroying previous module');
-          module.reset();
-          $window
-            .off('resize' + eventNamespace, module.event.resize)
-          ;
-          $scroll
-            .off('scroll' + eventNamespace, module.event.scroll)
-          ;
-          $module
-            .removeData(moduleNamespace)
-          ;
-        },
-
-        observeChanges: function() {
-          var
-            context = $context[0]
-          ;
-          if('MutationObserver' in window) {
-            observer = new MutationObserver(function(mutations) {
-              clearTimeout(module.timer);
-              module.timer = setTimeout(function() {
-                module.verbose('DOM tree modified, updating sticky menu');
-                module.refresh();
-              }, 200);
-            });
-            observer.observe(element, {
-              childList : true,
-              subtree   : true
-            });
-            observer.observe(context, {
-              childList : true,
-              subtree   : true
-            });
-            module.debug('Setting up mutation observer', observer);
-          }
-        },
-
-        event: {
-          resize: function() {
-            requestAnimationFrame(function() {
-              module.refresh();
-              module.stick();
-            });
-          },
-          scroll: function() {
-            requestAnimationFrame(function() {
-              module.stick();
-              $.proxy(settings.onScroll, element)();
-            });
-          }
-        },
-
-        refresh: function(hardRefresh) {
-          module.reset();
-          if(hardRefresh) {
-            $container = $module.offsetParent();
-          }
-          module.save.positions();
-          module.stick();
-          $.proxy(settings.onReposition, element)();
-        },
-
-        supports: {
-          sticky: function() {
-            var
-              $element = $('<div/>'),
-              element = $element.get()
-            ;
-            $element
-              .addClass(className.supported)
-            ;
-            return($element.css('position').match('sticky'));
-          }
-        },
-
-        save: {
-          scroll: function(scroll) {
-            module.lastScroll = scroll;
-          },
-          positions: function() {
-            var
-              window = {
-                height: $window.height()
-              },
-              element = {
-                margin: {
-                  top    : parseInt($module.css('margin-top'), 10),
-                  bottom : parseInt($module.css('margin-bottom'), 10),
-                },
-                offset : $module.offset(),
-                width  : $module.outerWidth(),
-                height : $module.outerHeight()
-              },
-              context = {
-                offset: $context.offset(),
-                height: $context.outerHeight()
-              }
-            ;
-            module.cache = {
-              fits : ( element.height < window.height ),
-              window: {
-                height: window.height
-              },
-              element: {
-                margin : element.margin,
-                top    : element.offset.top - element.margin.top,
-                left   : element.offset.left,
-                width  : element.width,
-                height : element.height,
-                bottom : element.offset.top + element.height
-              },
-              context: {
-                top    : context.offset.top,
-                height : context.height,
-                bottom : context.offset.top + context.height
-              }
-            };
-            module.set.containerSize();
-            module.set.size();
-            module.stick();
-            module.debug('Caching element positions', module.cache);
-          }
-        },
-
-        get: {
-          direction: function(scroll) {
-            var
-              direction = 'down'
-            ;
-            scroll = scroll || $scroll.scrollTop();
-            if(module.lastScroll !== undefined) {
-              if(module.lastScroll < scroll) {
-                direction = 'down';
-              }
-              else if(module.lastScroll > scroll) {
-                direction = 'up';
-              }
-            }
-            return direction;
-          },
-          scrollChange: function(scroll) {
-            scroll = scroll || $scroll.scrollTop();
-            return (module.lastScroll)
-              ? (scroll - module.lastScroll)
-              : 0
-            ;
-          },
-          currentElementScroll: function() {
-            return ( module.is.top() )
-              ? Math.abs(parseInt($module.css('top'), 10))    || 0
-              : Math.abs(parseInt($module.css('bottom'), 10)) || 0
-            ;
-          },
-          elementScroll: function(scroll) {
-            scroll = scroll || $scroll.scrollTop();
-            var
-              element        = module.cache.element,
-              window         = module.cache.window,
-              delta          = module.get.scrollChange(scroll),
-              maxScroll      = (element.height - window.height + settings.offset),
-              currentScroll  = module.get.currentElementScroll(),
-              possibleScroll = (currentScroll + delta),
-              elementScroll
-            ;
-            if(module.cache.fits || possibleScroll < 0) {
-              elementScroll = 0;
-            }
-            else if (possibleScroll > maxScroll ) {
-              elementScroll = maxScroll;
-            }
-            else {
-              elementScroll = possibleScroll;
-            }
-            return elementScroll;
-          }
-        },
-
-        remove: {
-          offset: function() {
-            $module.css('margin-top', '');
-          }
-        },
-
-        set: {
-          offset: function() {
-            module.verbose('Setting offset on element', settings.offset);
-            $module.css('margin-top', settings.offset);
-          },
-          containerSize: function() {
-            var
-              tagName = $container.get(0).tagName
-            ;
-            if(tagName === 'HTML' || tagName == 'body') {
-              // this can trigger for too many reasons
-              //module.error(error.container, tagName, $module);
-              $container = $module.offsetParent();
-            }
-            else {
-              module.debug('Settings container size', module.cache.context.height);
-              $container.height(module.cache.context.height);
-            }
-          },
-          scroll: function(scroll) {
-            module.debug('Setting scroll on element', scroll);
-            if( module.is.top() ) {
-              $module
-                .css('bottom', '')
-                .css('top', -scroll)
-              ;
-            }
-            if( module.is.bottom() ) {
-              $module
-                .css('top', '')
-                .css('bottom', scroll)
-              ;
-            }
-          },
-          size: function() {
-            if(module.cache.element.height !== 0 && module.cache.element.width !== 0) {
-              $module
-                .css({
-                  width  : module.cache.element.width,
-                  height : module.cache.element.height
-                })
-              ;
-            }
-          }
-        },
-
-        is: {
-          top: function() {
-            return $module.hasClass(className.top);
-          },
-          bottom: function() {
-            return $module.hasClass(className.bottom);
-          },
-          initialPosition: function() {
-            return (!module.is.fixed() && !module.is.bound());
-          },
-          hidden: function() {
-            return (!$module.is(':visible'));
-          },
-          bound: function() {
-            return $module.hasClass(className.bound);
-          },
-          fixed: function() {
-            return $module.hasClass(className.fixed);
-          }
-        },
-
-        stick: function() {
-          var
-            cache          = module.cache,
-            fits           = cache.fits,
-            element        = cache.element,
-            window         = cache.window,
-            context        = cache.context,
-            scroll         = {
-              top    : $scroll.scrollTop() + settings.offset,
-              bottom : $scroll.scrollTop() + settings.offset + window.height
-            },
-            direction      = module.get.direction(scroll.top),
-            elementScroll  = module.get.elementScroll(scroll.top),
-
-            // shorthand
-            doesntFit      = !fits,
-            elementVisible = (element.height !== 0)
-          ;
-
-          // save current scroll for next run
-          module.save.scroll(scroll.top);
-
-          if(elementVisible) {
-
-            if( module.is.initialPosition() ) {
-              if(scroll.top >= element.top) {
-                module.debug('Element passed, fixing element to page');
-                module.fixTop();
-              }
-            }
-            else if( module.is.fixed() ) {
-
-              // currently fixed top
-              if( module.is.top() ) {
-                if( scroll.top < element.top ) {
-                  module.debug('Fixed element reached top of container');
-                  module.setInitialPosition();
-                }
-                else if( (element.height + scroll.top - elementScroll) > context.bottom ) {
-                  module.debug('Fixed element reached bottom of container');
-                  module.bindBottom();
-                }
-                // scroll element if larger than screen
-                else if(doesntFit) {
-                  module.set.scroll(elementScroll);
-                }
-              }
-
-              // currently fixed bottom
-              else if(module.is.bottom() ) {
-
-                // top edge
-                if( (scroll.bottom - element.height) < element.top) {
-                  module.debug('Bottom fixed rail has reached top of container');
-                  module.setInitialPosition();
-                }
-                // bottom edge
-                else if(scroll.bottom > context.bottom) {
-                  module.debug('Bottom fixed rail has reached bottom of container');
-                  module.bindBottom();
-                }
-                // scroll element if larger than screen
-                else if(doesntFit) {
-                  module.set.scroll(elementScroll);
-                }
-
-              }
-            }
-            else if( module.is.bottom() ) {
-              // fix to bottom of screen on way back up
-              if( module.is.bottom() ) {
-                if(settings.pushing) {
-                  if(module.is.bound() && scroll.bottom < context.bottom ) {
-                    module.debug('Fixing bottom attached element to bottom of browser.');
-                    module.fixBottom();
-                  }
-                }
-                else {
-                  if(module.is.bound() && (scroll.top < context.bottom - element.height) ) {
-                    module.debug('Fixing bottom attached element to top of browser.');
-                    module.fixTop();
-                  }
-                }
-              }
-            }
-          }
-        },
-
-        bindTop: function() {
-          module.debug('Binding element to top of parent container');
-          module.remove.offset();
-          $module
-            .css('left' , '')
-            .css('top' , '')
-            .css('bottom' , '')
-            .removeClass(className.fixed)
-            .removeClass(className.bottom)
-            .addClass(className.bound)
-            .addClass(className.top)
-          ;
-          $.proxy(settings.onTop, element)();
-          $.proxy(settings.onUnstick, element)();
-        },
-        bindBottom: function() {
-          module.debug('Binding element to bottom of parent container');
-          module.remove.offset();
-          $module
-            .css('left' , '')
-            .css('top' , '')
-            .css('bottom' , '')
-            .removeClass(className.fixed)
-            .removeClass(className.top)
-            .addClass(className.bound)
-            .addClass(className.bottom)
-          ;
-          $.proxy(settings.onBottom, element)();
-          $.proxy(settings.onUnstick, element)();
-        },
-
-        setInitialPosition: function() {
-          module.unfix();
-          module.unbind();
-        },
-
-
-        fixTop: function() {
-          module.debug('Fixing element to top of page');
-          module.set.offset();
-          $module
-            .css('left', module.cache.element.left)
-            .removeClass(className.bound)
-            .removeClass(className.bottom)
-            .addClass(className.fixed)
-            .addClass(className.top)
-          ;
-          $.proxy(settings.onStick, element)();
-        },
-
-        fixBottom: function() {
-          module.debug('Sticking element to bottom of page');
-          module.set.offset();
-          $module
-            .css('left', module.cache.element.left)
-            .removeClass(className.bound)
-            .removeClass(className.top)
-            .addClass(className.fixed)
-            .addClass(className.bottom)
-          ;
-          $.proxy(settings.onStick, element)();
-        },
-
-        unbind: function() {
-          module.debug('Removing absolute position on element');
-          module.remove.offset();
-          $module
-            .removeClass(className.bound)
-            .removeClass(className.top)
-            .removeClass(className.bottom)
-          ;
-        },
-
-        unfix: function() {
-          module.debug('Removing fixed position on element');
-          module.remove.offset();
-          $module
-            .removeClass(className.fixed)
-            .removeClass(className.top)
-            .removeClass(className.bottom)
-          ;
-          $.proxy(settings.onUnstick, this)();
-        },
-
-        reset: function() {
-          module.debug('Reseting elements position');
-          module.unbind();
-          module.unfix();
-          module.resetCSS();
-        },
-
-        resetCSS: function() {
-          $module
-            .css({
-              top    : '',
-              bottom : '',
-              width  : '',
-              height : ''
-            })
-          ;
-          $container
-            .css({
-              height: ''
-            })
-          ;
-        },
-
-        setting: function(name, value) {
-          if( $.isPlainObject(name) ) {
-            $.extend(true, settings, name);
-          }
-          else if(value !== undefined) {
-            settings[name] = value;
-          }
-          else {
-            return settings[name];
-          }
-        },
-        internal: function(name, value) {
-          if( $.isPlainObject(name) ) {
-            $.extend(true, module, name);
-          }
-          else if(value !== undefined) {
-            module[name] = value;
-          }
-          else {
-            return module[name];
-          }
-        },
-        debug: function() {
-          if(settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.debug.apply(console, arguments);
-            }
-          }
-        },
-        verbose: function() {
-          if(settings.verbose && settings.debug) {
-            if(settings.performance) {
-              module.performance.log(arguments);
-            }
-            else {
-              module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-              module.verbose.apply(console, arguments);
-            }
-          }
-        },
-        error: function() {
-          module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-          module.error.apply(console, arguments);
-        },
-        performance: {
-          log: function(message) {
-            var
-              currentTime,
-              executionTime,
-              previousTime
-            ;
-            if(settings.performance) {
-              currentTime   = new Date().getTime();
-              previousTime  = time || currentTime;
-              executionTime = currentTime - previousTime;
-              time          = currentTime;
-              performance.push({
-                'Name'           : message[0],
-                'Arguments'      : [].slice.call(message, 1) || '',
-                'Element'        : element,
-                'Execution Time' : executionTime
-              });
-            }
-            clearTimeout(module.performance.timer);
-            module.performance.timer = setTimeout(module.performance.display, 0);
-          },
-          display: function() {
-            var
-              title = settings.name + ':',
-              totalTime = 0
-            ;
-            time = false;
-            clearTimeout(module.performance.timer);
-            $.each(performance, function(index, data) {
-              totalTime += data['Execution Time'];
-            });
-            title += ' ' + totalTime + 'ms';
-            if(moduleSelector) {
-              title += ' \'' + moduleSelector + '\'';
-            }
-            if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
-              console.groupCollapsed(title);
-              if(console.table) {
-                console.table(performance);
-              }
-              else {
-                $.each(performance, function(index, data) {
-                  console.log(data['Name'] + ': ' + data['Execution Time']+'ms');
-                });
-              }
-              console.groupEnd();
-            }
-            performance = [];
-          }
-        },
-        invoke: function(query, passedArguments, context) {
-          var
-            object = instance,
-            maxDepth,
-            found,
-            response
-          ;
-          passedArguments = passedArguments || queryArguments;
-          context         = element         || context;
-          if(typeof query == 'string' && object !== undefined) {
-            query    = query.split(/[\. ]/);
-            maxDepth = query.length - 1;
-            $.each(query, function(depth, value) {
-              var camelCaseValue = (depth != maxDepth)
-                ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                : query
-              ;
-              if( $.isPlainObject( object[camelCaseValue] ) && (depth != maxDepth) ) {
-                object = object[camelCaseValue];
-              }
-              else if( object[camelCaseValue] !== undefined ) {
-                found = object[camelCaseValue];
-                return false;
-              }
-              else if( $.isPlainObject( object[value] ) && (depth != maxDepth) ) {
-                object = object[value];
-              }
-              else if( object[value] !== undefined ) {
-                found = object[value];
-                return false;
-              }
-              else {
-                return false;
-              }
-            });
-          }
-          if ( $.isFunction( found ) ) {
-            response = found.apply(context, passedArguments);
-          }
-          else if(found !== undefined) {
-            response = found;
-          }
-          if($.isArray(returnedValue)) {
-            returnedValue.push(response);
-          }
-          else if(returnedValue !== undefined) {
-            returnedValue = [returnedValue, response];
-          }
-          else if(response !== undefined) {
-            returnedValue = response;
-          }
-          return found;
-        }
-      };
-
-      if(methodInvoked) {
-        if(instance === undefined) {
-          module.initialize();
-        }
-        module.invoke(query);
-      }
-      else {
-        if(instance !== undefined) {
-          module.destroy();
-        }
-        module.initialize();
-      }
-    })
-  ;
-
-  return (returnedValue !== undefined)
-    ? returnedValue
-    : this
-  ;
-};
-
-$.fn.sticky.settings = {
-
-  name          : 'Sticky',
-  namespace     : 'sticky',
-
-  debug         : false,
-  verbose       : false,
-  performance   : false,
-
-  pushing       : false,
-
-  context       : false,
-  scrollContext : window,
-  offset        : 0,
-
-  onReposition  : function(){},
-  onScroll      : function(){},
-  onStick       : function(){},
-  onUnstick     : function(){},
-  onTop         : function(){},
-  onBottom      : function(){},
-
-  error         : {
-    container      : 'Sticky element must be inside a relative container',
-    visible        : 'Element is hidden, you must call refresh after element becomes visible',
-    method         : 'The method you called is not defined.',
-    invalidContext : 'Context specified does not exist',
-    elementSize    : 'Sticky element is larger than its container, cannot create sticky.'
-  },
-
-  className : {
-    bound     : 'bound',
-    fixed     : 'fixed',
-    supported : 'native',
-    top       : 'top',
-    bottom    : 'bottom'
-  }
-
-};
-
-})( jQuery, window , document );
-
 /*
  * # Semantic - Transition
  * http://github.com/semantic-org/semantic-ui/
@@ -12440,7 +12489,7 @@ $.fn.rating.settings = {
 })( jQuery, window , document );
 
 /*
- * # Semantic - Sidebar
+ * # Semantic - Search
  * http://github.com/semantic-org/semantic-ui/
  *
  *
@@ -12450,83 +12499,80 @@ $.fn.rating.settings = {
  *
  */
 
-;(function ( $, window, document, undefined ) {
+;(function ($, window, document, undefined) {
 
 "use strict";
 
-$.fn.sidebar = function(parameters) {
+$.fn.search = function(parameters) {
   var
-    $allModules    = $(this),
-    $head          = $('head'),
+    $allModules     = $(this),
+    moduleSelector  = $allModules.selector || '',
 
-    moduleSelector = $allModules.selector || '',
+    time            = new Date().getTime(),
+    performance     = [],
 
-    time           = new Date().getTime(),
-    performance    = [],
-
-    query          = arguments[0],
-    methodInvoked  = (typeof query == 'string'),
-    queryArguments = [].slice.call(arguments, 1),
-
-    requestAnimationFrame = window.requestAnimationFrame
-      || window.mozRequestAnimationFrame
-      || window.webkitRequestAnimationFrame
-      || window.msRequestAnimationFrame
-      || function(callback) { setTimeout(callback, 0); },
-
+    query           = arguments[0],
+    methodInvoked   = (typeof query == 'string'),
+    queryArguments  = [].slice.call(arguments, 1),
     returnedValue
   ;
-
-  $allModules
+  $(this)
     .each(function() {
       var
-        settings        = ( $.isPlainObject(parameters) )
-          ? $.extend(true, {}, $.fn.sidebar.settings, parameters)
-          : $.extend({}, $.fn.sidebar.settings),
+        settings        = $.extend(true, {}, $.fn.search.settings, parameters),
 
-        selector        = settings.selector,
         className       = settings.className,
-        namespace       = settings.namespace,
+        selector        = settings.selector,
         error           = settings.error,
+        namespace       = settings.namespace,
 
         eventNamespace  = '.' + namespace,
-        moduleNamespace = 'module-' + namespace,
+        moduleNamespace = namespace + '-module',
 
         $module         = $(this),
-        $context        = $(settings.context),
-
-        $sidebars       = $module.children(selector.sidebar),
-        $pusher         = $context.children(selector.pusher),
-        $style,
+        $prompt         = $module.find(selector.prompt),
+        $searchButton   = $module.find(selector.searchButton),
+        $results        = $module.find(selector.results),
+        $result         = $module.find(selector.result),
+        $category       = $module.find(selector.category),
 
         element         = this,
         instance        = $module.data(moduleNamespace),
 
-        currentScroll,
-        transitionEvent,
-
         module
       ;
-
-      module      = {
+      module = {
 
         initialize: function() {
-          module.debug('Initializing sidebar', parameters);
-
-          transitionEvent = module.get.transitionEvent();
-
-          // cache on initialize
-          if( module.is.legacy() || settings.legacy) {
-            settings.transition = 'overlay';
-            settings.useLegacy = true;
+          module.verbose('Initializing module');
+          var
+            prompt = $prompt[0],
+            inputEvent   = (prompt !== undefined && prompt.oninput !== undefined)
+              ? 'input'
+              : (prompt !== undefined && prompt.onpropertychange !== undefined)
+                ? 'propertychange'
+                : 'keyup'
+          ;
+          if(settings.automatic) {
+            $prompt
+              .on(inputEvent + eventNamespace, module.search.throttle)
+            ;
           }
-
-          // avoid locking rendering if included in onReady
-          requestAnimationFrame(module.setup.layout);
-
+          $prompt
+            .on('focus' + eventNamespace, module.event.focus)
+            .on('blur' + eventNamespace, module.event.blur)
+            .on('keydown' + eventNamespace, module.handleKeyboard)
+          ;
+          $searchButton
+            .on('click' + eventNamespace, module.search.query)
+          ;
+          $results
+            .on('mousedown' + eventNamespace, module.event.mousedown)
+            .on('mouseup' + eventNamespace, module.event.mouseup)
+            .on('click' + eventNamespace, selector.result, module.results.select)
+          ;
           module.instantiate();
         },
-
         instantiate: function() {
           module.verbose('Storing instance of module', module);
           instance = module;
@@ -12534,586 +12580,402 @@ $.fn.sidebar = function(parameters) {
             .data(moduleNamespace, module)
           ;
         },
-
         destroy: function() {
-          module.verbose('Destroying previous module for', $module);
-          module.remove.direction();
+          module.verbose('Destroying instance');
           $module
-            .off(eventNamespace)
             .removeData(moduleNamespace)
           ;
+          $prompt
+            .off(eventNamespace)
+          ;
+          $searchButton
+            .off(eventNamespace)
+          ;
+          $results
+            .off(eventNamespace)
+          ;
         },
-
         event: {
-          clickaway: function(event) {
-            if( $(event.target).closest(selector.sidebar).size() === 0 ) {
-              module.verbose('User clicked on dimmed page');
-              module.hide();
+          focus: function() {
+            $module
+              .addClass(className.focus)
+            ;
+            clearTimeout(module.timer);
+            module.search.throttle();
+            if(module.has.minimum())  {
+              module.results.show();
             }
           },
-          touch: function(event) {
-            //event.stopPropagation();
+          mousedown: function() {
+            module.resultsClicked = true;
           },
-          containScroll: function(event) {
-            if(element.scrollTop <= 0)  {
-              element.scrollTop = 1;
-            }
-            if((element.scrollTop + element.offsetHeight) >= element.scrollHeight) {
-              element.scrollTop = element.scrollHeight - element.offsetHeight - 1;
-            }
+          mouseup: function() {
+            module.resultsClicked = false;
           },
-          scroll: function(event) {
-            if( $(event.target).closest(selector.sidebar).size() === 0 ) {
+          blur: function(event) {
+            module.search.cancel();
+            $module
+              .removeClass(className.focus)
+            ;
+            if(!module.resultsClicked) {
+              module.timer = setTimeout(module.results.hide, settings.hideDelay);
+            }
+          }
+        },
+        handleKeyboard: function(event) {
+          var
+            // force latest jq dom
+            $result       = $module.find(selector.result),
+            $category     = $module.find(selector.category),
+            keyCode       = event.which,
+            keys          = {
+              backspace : 8,
+              enter     : 13,
+              escape    : 27,
+              upArrow   : 38,
+              downArrow : 40
+            },
+            activeClass  = className.active,
+            currentIndex = $result.index( $result.filter('.' + activeClass) ),
+            resultSize   = $result.size(),
+            newIndex
+          ;
+          // search shortcuts
+          if(keyCode == keys.escape) {
+            module.verbose('Escape key pressed, blurring search field');
+            $prompt
+              .trigger('blur')
+            ;
+          }
+          // result shortcuts
+          if($results.filter(':visible').size() > 0) {
+            if(keyCode == keys.enter) {
+              module.verbose('Enter key pressed, selecting active result');
+              if( $result.filter('.' + activeClass).size() > 0 ) {
+                $.proxy(module.results.select, $result.filter('.' + activeClass) )(event);
+                event.preventDefault();
+                return false;
+              }
+            }
+            else if(keyCode == keys.upArrow) {
+              module.verbose('Up key pressed, changing active result');
+              newIndex = (currentIndex - 1 < 0)
+                ? currentIndex
+                : currentIndex - 1
+              ;
+              $category
+                .removeClass(activeClass)
+              ;
+              $result
+                .removeClass(activeClass)
+                .eq(newIndex)
+                  .addClass(activeClass)
+                  .closest($category)
+                    .addClass(activeClass)
+              ;
+              event.preventDefault();
+            }
+            else if(keyCode == keys.downArrow) {
+              module.verbose('Down key pressed, changing active result');
+              newIndex = (currentIndex + 1 >= resultSize)
+                ? currentIndex
+                : currentIndex + 1
+              ;
+              $category
+                .removeClass(activeClass)
+              ;
+              $result
+                .removeClass(activeClass)
+                .eq(newIndex)
+                  .addClass(activeClass)
+                  .closest($category)
+                    .addClass(activeClass)
+              ;
               event.preventDefault();
             }
           }
-        },
-
-        bind: {
-          clickaway: function() {
-            if(settings.scrollLock) {
-              $(window)
-                .on('DOMMouseScroll' + eventNamespace, module.event.scroll)
+          else {
+            // query shortcuts
+            if(keyCode == keys.enter) {
+              module.verbose('Enter key pressed, executing query');
+              module.search.query();
+              $searchButton
+                .addClass(className.down)
               ;
-            }
-            $(document)
-              .on('touchmove' + eventNamespace, module.event.touch)
-            ;
-            $module
-              .on('scroll' + eventNamespace, module.event.containScroll)
-            ;
-            if(settings.closable) {
-              $context
-                .on('click' + eventNamespace, module.event.clickaway)
-                .on('touchend' + eventNamespace, module.event.clickaway)
+              $prompt
+                .one('keyup', function(){
+                  $searchButton
+                    .removeClass(className.down)
+                  ;
+                })
               ;
             }
           }
         },
-        unbind: {
-          clickaway: function() {
-            $context.off(eventNamespace);
-            $pusher.off(eventNamespace);
-            $(document).off(eventNamespace);
-            $(window).off(eventNamespace);
-          }
-        },
-
-        add: {
-          bodyCSS: function(direction, distance) {
+        has: {
+          minimum: function() {
             var
-              width  = $module.outerWidth(),
-              height = $module.outerHeight(),
-              style  = ''
-                + '<style title="' + namespace + '">'
-                + ' .ui.visible.left.sidebar ~ .fixed,'
-                + ' .ui.visible.left.sidebar ~ .pusher {'
-                + '   -webkit-transform: translate3d('+ width + 'px, 0, 0);'
-                + '           transform: translate3d('+ width + 'px, 0, 0);'
-                + ' }'
-                + ' .ui.visible.right.sidebar ~ .fixed,'
-                + ' .ui.visible.right.sidebar ~ .pusher {'
-                + '   -webkit-transform: translate3d(-'+ width + 'px, 0, 0);'
-                + '           transform: translate3d(-'+ width + 'px, 0, 0);'
-                + ' }'
-                + ' .ui.visible.left.sidebar ~ .ui.visible.right.sidebar ~ .fixed,'
-                + ' .ui.visible.left.sidebar ~ .ui.visible.right.sidebar ~ .pusher,'
-                + ' .ui.visible.right.sidebar ~ .ui.visible.left.sidebar ~ .fixed,'
-                + ' .ui.visible.right.sidebar ~ .ui.visible.left.sidebar ~ .pusher {'
-                + '   -webkit-transform: translate3d(0px, 0, 0);'
-                + '           transform: translate3d(0px, 0, 0);'
-                + ' }'
-                + ' .ui.visible.top.sidebar ~ .fixed,'
-                + ' .ui.visible.top.sidebar ~ .pusher {'
-                + '   -webkit-transform: translate3d(0, ' + height + 'px, 0);'
-                + '           transform: translate3d(0, ' + height + 'px, 0);'
-                + ' }'
-                + ' .ui.visible.bottom.sidebar ~ .fixed,'
-                + ' .ui.visible.bottom.sidebar ~ .pusher {'
-                + '   -webkit-transform: translate3d(0, -' + height + 'px, 0);'
-                + '           transform: translate3d(0, -' + height + 'px, 0);'
-                + ' }'
-                + '</style>'
+              searchTerm    = $prompt.val(),
+              numCharacters = searchTerm.length
             ;
-            $head.append(style);
-            $style = $('style[title=' + namespace + ']');
-            module.debug('Adding sizing css to head', $style);
+            return (numCharacters >= settings.minCharacters);
           }
         },
-
-        refresh: function() {
-          module.verbose('Refreshing selector cache');
-          $context  = $(settings.context);
-          $sidebars = $context.children(selector.sidebar);
-          $pusher   = $context.children(selector.pusher);
-        },
-
-        repaint: function() {
-          module.verbose('Forcing repaint event');
-          element.style.display='none';
-          element.offsetHeight;
-          element.scrollTop = element.scrollTop;
-          element.style.display='';
-        },
-
-        setup: {
-          layout: function() {
-            if( $context.children(selector.pusher).size() === 0 ) {
-              module.debug('Adding wrapper element for sidebar');
-              module.error(error.pusher);
-              $pusher = $('<div class="pusher" />');
-              $context
-                .children()
-                  .not(selector.omitted)
-                  .not($sidebars)
-                  .wrapAll($pusher)
-              ;
-              module.refresh();
-            }
-            if($module.nextAll(selector.pusher).size() == 0 || $module.nextAll(selector.pusher)[0] !== $pusher[0]) {
-              module.debug('Moved sidebar to correct parent element');
-              module.error(error.movedSidebar, element);
-              $module.detach().prependTo($context);
-              module.refresh();
-            }
-            module.set.pushable();
-            module.set.direction();
-          }
-        },
-
-        attachEvents: function(selector, event) {
-          var
-            $toggle = $(selector)
-          ;
-          event = $.isFunction(module[event])
-            ? module[event]
-            : module.toggle
-          ;
-          if($toggle.size() > 0) {
-            module.debug('Attaching sidebar events to element', selector, event);
-            $toggle
-              .on('click' + eventNamespace, event)
-            ;
-          }
-          else {
-            module.error(error.notFound, selector);
-          }
-        },
-
-        show: function(callback) {
-          var
-            animateMethod = (settings.useLegacy)
-              ? module.legacyPushPage
-              : module.pushPage
-          ;
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          if(module.is.closed()) {
-            if(settings.overlay)  {
-              module.error(error.overlay);
-              settings.transition = 'overlay';
-            }
-            module.refresh();
-            if(module.othersVisible() && module.get.transition() != 'overlay') {
-              module.debug('Other sidebars currently open');
-              if(settings.exclusive) {
-                module.hideOthers();
-              }
-            }
-            animateMethod(function() {
-              $.proxy(callback, element)();
-              $.proxy(settings.onShow, element)();
-            });
-            $.proxy(settings.onChange, element)();
-            $.proxy(settings.onVisible, element)();
-          }
-          else {
-            module.debug('Sidebar is already visible');
-          }
-        },
-
-        hide: function(callback) {
-          var
-            animateMethod = (settings.useLegacy)
-              ? module.legacyPullPage
-              : module.pullPage
-          ;
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          if(module.is.visible() || module.is.animating()) {
-            module.debug('Hiding sidebar', callback);
-            animateMethod(function() {
-              $.proxy(callback, element)();
-              $.proxy(settings.onHidden, element)();
-            });
-            $.proxy(settings.onChange, element)();
-            $.proxy(settings.onHide, element)();
-          }
-        },
-
-        othersVisible: function() {
-          return ($sidebars.not($module).filter('.' + className.visible).size() > 0);
-        },
-        othersActive: function() {
-          return ($sidebars.not($module).filter('.' + className.active).size() > 0);
-        },
-
-        hideOthers: function(callback) {
-          var
-            $otherSidebars = $sidebars.not($module).filter('.' + className.visible),
-            callback       = callback || function(){},
-            sidebarCount   = $otherSidebars.size(),
-            callbackCount  = 0
-          ;
-          $otherSidebars
-            .sidebar('hide', function() {
-              callbackCount++;
-              if(callbackCount == sidebarCount) {
-                callback();
-              }
-            })
-          ;
-        },
-
-        toggle: function() {
-          module.verbose('Determining toggled direction');
-          if(module.is.closed()) {
-            module.show();
-          }
-          else {
-            module.hide();
-          }
-        },
-
-        pushPage: function(callback) {
-          var
-            transition = module.get.transition(),
-            $transition = (transition == 'safe')
-              ? $context
-              : (transition == 'overlay' || module.othersActive())
-                ? $module
-                : $pusher,
-            animate,
-            transitionEnd
-          ;
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          if(settings.transition == 'scale down' || (module.is.mobile() && transition !== 'overlay')) {
-            module.scrollToTop();
-          }
-          module.set.transition();
-          module.repaint();
-          animate = function() {
-            module.add.bodyCSS();
-            module.set.animating();
-            module.set.visible();
-            if(!module.othersActive()) {
-              if(settings.dimPage) {
-                $pusher.addClass(className.dimmed);
-              }
-            }
-          };
-          transitionEnd = function(event) {
-            if( event.target == $transition[0] ) {
-              $transition.off(transitionEvent + eventNamespace, transitionEnd);
-              module.remove.animating();
-              module.bind.clickaway();
-              $.proxy(callback, element)();
-            }
-          };
-          $transition.on(transitionEvent + eventNamespace, transitionEnd);
-          requestAnimationFrame(animate);
-        },
-
-        pullPage: function(callback) {
-          var
-            transition = module.get.transition(),
-            $transition = (transition == 'safe')
-              ? $context
-              : (transition == 'overlay' || module.othersActive())
-                ? $module
-                : $pusher,
-            animate,
-            transitionEnd
-          ;
-          callback = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          module.verbose('Removing context push state', module.get.direction());
-          if(!module.othersActive()) {
-            module.unbind.clickaway();
-          }
-          animate = function() {
-            module.set.animating();
-            module.remove.visible();
-            if(settings.dimPage && !module.othersActive()) {
-              $pusher.removeClass(className.dimmed);
-            }
-          };
-          transitionEnd = function(event) {
-            if( event.target == $transition[0] ) {
-              $transition.off(transitionEvent + eventNamespace, transitionEnd);
-              module.remove.animating();
-              module.remove.transition();
-              module.remove.bodyCSS();
-              if(transition == 'scale down' || (settings.returnScroll && module.is.mobile()) ) {
-                module.scrollBack();
-              }
-              $.proxy(callback, element)();
-            }
-          };
-          $transition.on(transitionEvent + eventNamespace, transitionEnd);
-          requestAnimationFrame(animate);
-        },
-
-        legacyPushPage: function(callback) {
-          var
-            distance   = $module.width(),
-            direction  = module.get.direction(),
-            properties = {}
-          ;
-          distance  = distance || $module.width();
-          callback  = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          properties[direction] = distance;
-          module.debug('Using javascript to push context', properties);
-          module.set.visible();
-          module.set.transition();
-          module.set.animating();
-          if(settings.dimPage) {
-            $pusher.addClass(className.dimmed);
-          }
-          $context
-            .css('position', 'relative')
-            .animate(properties, settings.duration, settings.easing, function() {
-              module.remove.animating();
-              module.bind.clickaway();
-              $.proxy(callback, module)();
-            })
-          ;
-        },
-        legacyPullPage: function(callback) {
-          var
-            distance   = 0,
-            direction  = module.get.direction(),
-            properties = {}
-          ;
-          distance  = distance || $module.width();
-          callback  = $.isFunction(callback)
-            ? callback
-            : function(){}
-          ;
-          properties[direction] = '0px';
-          module.debug('Using javascript to pull context', properties);
-          module.unbind.clickaway();
-          module.set.animating();
-          module.remove.visible();
-          if(settings.dimPage && !module.othersVisible()) {
-            $pusher.removeClass(className.dimmed);
-          }
-          $context
-            .css('position', 'relative')
-            .animate(properties, settings.duration, settings.easing, function() {
-              module.remove.animating();
-              $.proxy(callback, module)();
-            })
-          ;
-        },
-
-        scrollToTop: function() {
-          module.verbose('Scrolling to top of page to avoid animation issues');
-          currentScroll = $(window).scrollTop();
-          $module.scrollTop(0);
-          window.scrollTo(0, 0);
-        },
-
-        scrollBack: function() {
-          module.verbose('Scrolling back to original page position');
-          window.scrollTo(0, currentScroll);
-        },
-
-        set: {
-          // container
-          pushed: function() {
-            $context.addClass(className.pushed);
-          },
-          pushable: function() {
-            $context.addClass(className.pushable);
-          },
-
-          // sidebar
-          active: function() {
-            $module.addClass(className.active);
-          },
-          animating: function() {
-            $module.addClass(className.animating);
-          },
-          transition: function(transition) {
-            transition = transition || module.get.transition();
-            $module.addClass(transition);
-          },
-          direction: function(direction) {
-            direction = direction || module.get.direction();
-            $module.addClass(className[direction]);
-          },
-          visible: function() {
-            $module.addClass(className.visible);
-          },
-          overlay: function() {
-            $module.addClass(className.overlay);
-          }
-        },
-        remove: {
-
-          bodyCSS: function() {
-            module.debug('Removing body css styles', $style);
-            if($style.size() > 0) {
-              $style.remove();
-            }
-          },
-
-          // context
-          pushed: function() {
-            $context.removeClass(className.pushed);
-          },
-          pushable: function() {
-            $context.removeClass(className.pushable);
-          },
-
-          // sidebar
-          active: function() {
-            $module.removeClass(className.active);
-          },
-          animating: function() {
-            $module.removeClass(className.animating);
-          },
-          transition: function(transition) {
-            transition = transition || module.get.transition();
-            $module.removeClass(transition);
-          },
-          direction: function(direction) {
-            direction = direction || module.get.direction();
-            $module.removeClass(className[direction]);
-          },
-          visible: function() {
-            $module.removeClass(className.visible);
-          },
-          overlay: function() {
-            $module.removeClass(className.overlay);
-          }
-        },
-
-        get: {
-          direction: function() {
-            if($module.hasClass(className.top)) {
-              return className.top;
-            }
-            else if($module.hasClass(className.right)) {
-              return className.right;
-            }
-            else if($module.hasClass(className.bottom)) {
-              return className.bottom;
-            }
-            return className.left;
-          },
-          transition: function() {
+        search: {
+          cancel: function() {
             var
-              direction = module.get.direction(),
-              transition
+              xhr = $module.data('xhr') || false
             ;
-            return ( module.is.mobile() )
-              ? (settings.mobileTransition == 'auto')
-                ? settings.defaultTransition.mobile[direction]
-                : settings.mobileTransition
-              : (settings.transition == 'auto')
-                ? settings.defaultTransition.computer[direction]
-                : settings.transition
-            ;
-          },
-          transitionEvent: function() {
-            var
-              element     = document.createElement('element'),
-              transitions = {
-                'transition'       :'transitionend',
-                'OTransition'      :'oTransitionEnd',
-                'MozTransition'    :'transitionend',
-                'WebkitTransition' :'webkitTransitionEnd'
-              },
-              transition
-            ;
-            for(transition in transitions){
-              if( element.style[transition] !== undefined ){
-                return transitions[transition];
-              }
+            if( xhr && xhr.state() != 'resolved') {
+              module.debug('Cancelling last search');
+              xhr.abort();
             }
-          }
-        },
-
-        is: {
-          legacy: function() {
-            var
-              element    = document.createElement('div'),
-              transforms = {
-                'webkitTransform' :'-webkit-transform',
-                'OTransform'      :'-o-transform',
-                'msTransform'     :'-ms-transform',
-                'MozTransform'    :'-moz-transform',
-                'transform'       :'transform'
-              },
-              has3D
-            ;
-
-            // Add it to the body to get the computed style.
-            document.body.insertBefore(element, null);
-            for (var transform in transforms) {
-              if (element.style[transform] !== undefined) {
-                element.style[transform] = "translate3d(1px,1px,1px)";
-                has3D = window.getComputedStyle(element).getPropertyValue(transforms[transform]);
-              }
-            }
-            document.body.removeChild(element);
-            return !(has3D !== undefined && has3D.length > 0 && has3D !== 'none');
           },
-          mobile: function() {
-            var
-              userAgent    = navigator.userAgent,
-              mobileRegExp = /Mobile|iP(hone|od|ad)|Android|BlackBerry|IEMobile|Kindle|NetFront|Silk-Accelerated|(hpw|web)OS|Fennec|Minimo|Opera M(obi|ini)|Blazer|Dolfin|Dolphin|Skyfire|Zune/,
-              isMobile     = mobileRegExp.test(userAgent)
-            ;
-            if(isMobile) {
-              module.verbose('Browser was found to be mobile', userAgent);
-              return true;
+          throttle: function() {
+            clearTimeout(module.timer);
+            if(module.has.minimum())  {
+              module.timer = setTimeout(module.search.query, settings.searchDelay);
             }
             else {
-              module.verbose('Browser is not mobile, using regular transition', userAgent);
-              return false;
+              module.results.hide();
             }
           },
-          closed: function() {
-            return !module.is.visible();
+          query: function() {
+            var
+              searchTerm = $prompt.val(),
+              cachedHTML = module.search.cache.read(searchTerm)
+            ;
+            if(cachedHTML) {
+              module.debug("Reading result for '" + searchTerm + "' from cache");
+              module.results.add(cachedHTML);
+            }
+            else {
+              module.debug("Querying for '" + searchTerm + "'");
+              if($.isPlainObject(settings.source) || $.isArray(settings.source)) {
+                module.search.local(searchTerm);
+              }
+              else if(settings.apiSettings) {
+                module.search.remote(searchTerm);
+              }
+              else if($.fn.api !== undefined && $.api.settings.api.search !== undefined) {
+                module.debug('Searching with default search API endpoint');
+                settings.apiSettings = {
+                  action: 'search'
+                };
+                module.search.remote(searchTerm);
+              }
+              else {
+                module.error(error.source);
+              }
+              $.proxy(settings.onSearchQuery, $module)(searchTerm);
+            }
           },
-          visible: function() {
-            return $module.hasClass(className.visible);
+          local: function(searchTerm) {
+            var
+              results   = [],
+              fullTextResults = [],
+              searchFields    = $.isArray(settings.searchFields)
+                ? settings.searchFields
+                : [settings.searchFields],
+              searchRegExp   = new RegExp('(?:\s|^)' + searchTerm, 'i'),
+              fullTextRegExp = new RegExp(searchTerm, 'i'),
+              searchHTML
+            ;
+            $module
+              .addClass(className.loading)
+            ;
+            // iterate through search fields in array order
+            $.each(searchFields, function(index, field) {
+              $.each(settings.source, function(label, content) {
+                var
+                  fieldExists = (typeof content[field] == 'string'),
+                  notAlreadyResult = ($.inArray(content, results) == -1 && $.inArray(content, fullTextResults) == -1)
+                ;
+                if(fieldExists && notAlreadyResult) {
+                  if( searchRegExp.test( content[field] ) ) {
+                    results.push(content);
+                  }
+                  else if( settings.searchFullText && fullTextRegExp.test( content[field] ) ) {
+                    fullTextResults.push(content);
+                  }
+                }
+              });
+            });
+            searchHTML = module.results.generate({
+              results: $.merge(results, fullTextResults)
+            });
+            $module
+              .removeClass(className.loading)
+            ;
+            module.search.cache.write(searchTerm, searchHTML);
+            module.results.add(searchHTML);
           },
-          vertical: function() {
-            return $module.hasClass(className.top);
+          remote: function(searchTerm) {
+            var
+              apiSettings = {
+                stateContext : $module,
+                urlData      : {
+                  query: searchTerm
+                },
+                onSuccess : function(response) {
+                  searchHTML = module.results.generate(response);
+                  module.search.cache.write(searchTerm, searchHTML);
+                  module.results.add(searchHTML);
+                },
+                onFailure : module.error
+              },
+              searchHTML
+            ;
+            module.search.cancel();
+            module.debug('Executing search');
+            $.extend(true, apiSettings, settings.apiSettings);
+            $.api(apiSettings);
           },
-          animating: function() {
-            return $context.hasClass(className.animating);
+
+          cache: {
+            read: function(name) {
+              var
+                cache = $module.data('cache')
+              ;
+              return (settings.cache && (typeof cache == 'object') && (cache[name] !== undefined) )
+                ? cache[name]
+                : false
+              ;
+            },
+            write: function(name, value) {
+              var
+                cache = ($module.data('cache') !== undefined)
+                  ? $module.data('cache')
+                  : {}
+              ;
+              cache[name] = value;
+              $module
+                .data('cache', cache)
+              ;
+            }
           }
+        },
+
+        results: {
+          generate: function(response) {
+            module.debug('Generating html from response', response);
+            var
+              template = settings.templates[settings.type],
+              html     = ''
+            ;
+            if(($.isPlainObject(response.results) && !$.isEmptyObject(response.results)) || ($.isArray(response.results) && response.results.length > 0) ) {
+              if(settings.maxResults > 0) {
+                response.results = $.isArray(response.results)
+                  ? response.results.slice(0, settings.maxResults)
+                  : response.results
+                ;
+              }
+              if($.isFunction(template)) {
+                html = template(response);
+              }
+              else {
+                module.error(error.noTemplate, false);
+              }
+            }
+            else {
+              html = module.message(error.noResults, 'empty');
+            }
+            $.proxy(settings.onResults, $module)(response);
+            return html;
+          },
+          add: function(html) {
+            if(settings.onResultsAdd == 'default' || $.proxy(settings.onResultsAdd, $results)(html) == 'default') {
+              $results
+                .html(html)
+              ;
+            }
+            module.results.show();
+          },
+          show: function() {
+            if( ($results.filter(':visible').size() === 0) && ($prompt.filter(':focus').size() > 0) && $results.html() !== '') {
+              if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported') && !$results.transition('is inward')) {
+                module.debug('Showing results with css animations');
+                $results
+                  .transition({
+                    animation  : settings.transition + ' in',
+                    duration   : settings.duration,
+                    queue      : true
+                  })
+                ;
+              }
+              else {
+                module.debug('Showing results with javascript');
+                $results
+                  .stop()
+                  .fadeIn(settings.duration, settings.easing)
+                ;
+              }
+              $.proxy(settings.onResultsOpen, $results)();
+            }
+          },
+          hide: function() {
+            if($results.filter(':visible').size() > 0) {
+              if(settings.transition && $.fn.transition !== undefined && $module.transition('is supported') && !$results.transition('is outward')) {
+                module.debug('Hiding results with css animations');
+                $results
+                  .transition({
+                    animation  : settings.transition + ' out',
+                    duration   : settings.duration,
+                    queue      : true
+                  })
+                ;
+              }
+              else {
+                module.debug('Hiding results with javascript');
+                $results
+                  .stop()
+                  .fadeIn(settings.duration, settings.easing)
+                ;
+              }
+              $.proxy(settings.onResultsClose, $results)();
+            }
+          },
+          select: function(event) {
+            module.debug('Search result selected');
+            var
+              $result = $(this),
+              $title  = $result.find('.title'),
+              title   = $title.html()
+            ;
+            if(settings.onSelect == 'default' || $.proxy(settings.onSelect, this)(event) == 'default') {
+              var
+                $link  = $result.find('a[href]').eq(0),
+                $title = $result.find(selector.title).eq(0),
+                href   = $link.attr('href') || false,
+                target = $link.attr('target') || false,
+                name   = ($title.size() > 0)
+                  ? $title.text()
+                  : false
+              ;
+              module.results.hide();
+              if(name) {
+                $prompt.val(name);
+              }
+              if(href) {
+                if(target == '_blank' || event.ctrlKey) {
+                  window.open(href);
+                }
+                else {
+                  window.location.href = (href);
+                }
+              }
+            }
+          }
+        },
+
+        // displays mesage visibly in search results
+        message: function(text, type) {
+          type = type || 'standard';
+          module.results.add( settings.templates.message(text, type) );
+          return settings.templates.message(text, type);
         },
 
         setting: function(name, value) {
-          module.debug('Changing setting', name, value);
           if( $.isPlainObject(name) ) {
             $.extend(true, settings, name);
           }
@@ -13197,6 +13059,9 @@ $.fn.sidebar = function(parameters) {
             if(moduleSelector) {
               title += ' \'' + moduleSelector + '\'';
             }
+            if($allModules.size() > 1) {
+              title += ' ' + '(' + $allModules.size() + ')';
+            }
             if( (console.group !== undefined || console.table !== undefined) && performance.length > 0) {
               console.groupCollapsed(title);
               if(console.table) {
@@ -13244,7 +13109,6 @@ $.fn.sidebar = function(parameters) {
                 return false;
               }
               else {
-                module.error(error.method, query);
                 return false;
               }
             });
@@ -13266,22 +13130,22 @@ $.fn.sidebar = function(parameters) {
           }
           return found;
         }
+      };
+      if(methodInvoked) {
+        if(instance === undefined) {
+          module.initialize();
+        }
+        module.invoke(query);
       }
-    ;
-
-    if(methodInvoked) {
-      if(instance === undefined) {
+      else {
+        if(instance !== undefined) {
+          module.destroy();
+        }
         module.initialize();
       }
-      module.invoke(query);
-    }
-    else {
-      if(instance !== undefined) {
-        module.invoke('destroy');
-      }
-      module.initialize();
-    }
-  });
+
+    })
+  ;
 
   return (returnedValue !== undefined)
     ? returnedValue
@@ -13289,89 +13153,225 @@ $.fn.sidebar = function(parameters) {
   ;
 };
 
-$.fn.sidebar.settings = {
+$.fn.search.settings = {
 
-  name              : 'Sidebar',
-  namespace         : 'sidebar',
+  name           : 'Search Module',
+  namespace      : 'search',
 
-  debug             : false,
-  verbose           : true,
-  performance       : true,
+  debug          : false,
+  verbose        : true,
+  performance    : true,
 
-  transition        : 'auto',
-  mobileTransition  : 'auto',
+  // api config
+  apiSettings    : false,
+  type           : 'standard',
+  minCharacters  : 1,
 
-  defaultTransition : {
-    computer: {
-      left   : 'push',
-      right  : 'push',
-      top    : 'overlay',
-      bottom : 'overlay'
+  source         : false,
+  searchFields   : [
+    'title',
+    'description'
+  ],
+  searchFullText : true,
+
+  automatic      : 'true',
+  hideDelay      : 0,
+  searchDelay    : 300,
+  maxResults     : 7,
+  cache          : true,
+
+  transition     : 'scale',
+  duration       : 300,
+  easing         : 'easeOutExpo',
+
+  // onSelect default action is defined in module
+  onSelect       : 'default',
+  onResultsAdd   : 'default',
+
+  onSearchQuery  : function(){},
+  onResults      : function(response){},
+
+  onResultsOpen  : function(){},
+  onResultsClose : function(){},
+
+  className: {
+    active  : 'active',
+    down    : 'down',
+    focus   : 'focus',
+    empty   : 'empty',
+    loading : 'loading'
+  },
+
+  error : {
+    source      : 'Cannot search. No source used, and Semantic API module was not included',
+    noResults   : 'Your search returned no results',
+    logging     : 'Error in debug logging, exiting.',
+    noTemplate  : 'A valid template name was not specified.',
+    serverError : 'There was an issue with querying the server.',
+    method      : 'The method you called is not defined.'
+  },
+
+  selector : {
+    prompt       : '.prompt',
+    searchButton : '.search.button',
+    results      : '.results',
+    category     : '.category',
+    result       : '.result',
+    title        : '.title, .name'
+  },
+
+  templates: {
+    escape: function(string) {
+      var
+        badChars     = /[&<>"'`]/g,
+        shouldEscape = /[&<>"'`]/,
+        escape       = {
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#x27;",
+          "`": "&#x60;"
+        },
+        escapedChar  = function(chr) {
+          return escape[chr];
+        }
+      ;
+      if(shouldEscape.test(string)) {
+        return string.replace(badChars, escapedChar);
+      }
+      return string;
     },
-    mobile: {
-      left   : 'push',
-      right  : 'push',
-      top    : 'overlay',
-      bottom : 'overlay'
+    message: function(message, type) {
+      var
+        html = ''
+      ;
+      if(message !== undefined && type !== undefined) {
+        html +=  ''
+          + '<div class="message ' + type + '">'
+        ;
+        // message type
+        if(type == 'empty') {
+          html += ''
+            + '<div class="header">No Results</div class="header">'
+            + '<div class="description">' + message + '</div class="description">'
+          ;
+        }
+        else {
+          html += ' <div class="description">' + message + '</div>';
+        }
+        html += '</div>';
+      }
+      return html;
+    },
+    category: function(response) {
+      var
+        html = '',
+        escape = $.fn.search.settings.templates.escape
+      ;
+      if(response.results !== undefined) {
+        // each category
+        $.each(response.results, function(index, category) {
+          if(category.results !== undefined && category.results.length > 0) {
+            html  += ''
+              + '<div class="category">'
+              + '<div class="name">' + category.name + '</div>'
+            ;
+            // each item inside category
+            $.each(category.results, function(index, result) {
+              html  += '<div class="result">';
+              if(result.url) {
+                html  += '<a href="' + result.url + '"></a>';
+              }
+              if(result.image !== undefined) {
+                result.image = escape(result.image);
+                html += ''
+                  + '<div class="image">'
+                  + ' <img src="' + result.image + '" alt="">'
+                  + '</div>'
+                ;
+              }
+              html += '<div class="content">';
+              if(result.price !== undefined) {
+                result.price = escape(result.price);
+                html += '<div class="price">' + result.price + '</div>';
+              }
+              if(result.title !== undefined) {
+                result.title = escape(result.title);
+                html += '<div class="title">' + result.title + '</div>';
+              }
+              if(result.description !== undefined) {
+                html += '<div class="description">' + result.description + '</div>';
+              }
+              html  += ''
+                + '</div>'
+                + '</div>'
+              ;
+            });
+            html  += ''
+              + '</div>'
+            ;
+          }
+        });
+        if(response.action) {
+          html += ''
+          + '<a href="' + response.action.url + '" class="action">'
+          +   response.action.text
+          + '</a>';
+        }
+        return html;
+      }
+      return false;
+    },
+    standard: function(response) {
+      var
+        html = ''
+      ;
+      if(response.results !== undefined) {
+
+        // each result
+        $.each(response.results, function(index, result) {
+          if(result.url) {
+            html  += '<a class="result" href="' + result.url + '">';
+          }
+          else {
+            html  += '<a class="result">';
+          }
+          if(result.image !== undefined) {
+            html += ''
+              + '<div class="image">'
+              + ' <img src="' + result.image + '">'
+              + '</div>'
+            ;
+          }
+          html += '<div class="content">';
+          if(result.price !== undefined) {
+            html += '<div class="price">' + result.price + '</div>';
+          }
+          if(result.title !== undefined) {
+            html += '<div class="title">' + result.title + '</div>';
+          }
+          if(result.description !== undefined) {
+            html += '<div class="description">' + result.description + '</div>';
+          }
+          html  += ''
+            + '</div>'
+          ;
+          html += '</a>';
+        });
+
+        if(response.action) {
+          html += ''
+          + '<a href="' + response.action.url + '" class="action">'
+          +   response.action.text
+          + '</a>';
+        }
+        return html;
+      }
+      return false;
     }
-  },
-
-  context           : 'body',
-  exclusive         : false,
-  closable          : true,
-  dimPage           : true,
-  scrollLock        : false,
-  returnScroll      : false,
-
-  useLegacy         : false,
-  duration          : 500,
-  easing            : 'easeInOutQuint',
-
-  onChange          : function(){},
-  onShow            : function(){},
-  onHide            : function(){},
-
-  onHidden          : function(){},
-  onVisible         : function(){},
-
-  className         : {
-    active    : 'active',
-    animating : 'animating',
-    dimmed    : 'dimmed',
-    pushable  : 'pushable',
-    pushed    : 'pushed',
-    right     : 'right',
-    top       : 'top',
-    left      : 'left',
-    bottom    : 'bottom',
-    visible   : 'visible'
-  },
-
-  selector: {
-    fixed   : '.fixed',
-    omitted : 'script, link, style, .ui.modal, .ui.dimmer, .ui.nag, .ui.fixed',
-    pusher  : '.pusher',
-    sidebar : '.ui.sidebar'
-  },
-
-  error   : {
-    method       : 'The method you called is not defined.',
-    pusher       : 'Had to add pusher element. For optimal performance make sure body content is inside a pusher element',
-    movedSidebar : 'Had to move sidebar. For optimal performance make sure sidebar and pusher are direct children of your body tag',
-    overlay      : 'The overlay setting is no longer supported, use animation: overlay',
-    notFound     : 'There were no elements that matched the specified selector'
   }
-
 };
-
-// Adds easing
-$.extend( $.easing, {
-  easeInOutQuint: function (x, t, b, c, d) {
-    if ((t/=d/2) < 1) return c/2*t*t*t*t*t + b;
-    return c/2*((t-=2)*t*t*t*t + 2) + b;
-  }
-});
-
 
 })( jQuery, window , document );
 

@@ -65,6 +65,14 @@ angular.module('Dogui', [
 			url: '/dashboard/dockerfiles/new',
 			templateUrl: './views/dashboard.dockerfiles.new.html',
 			controller: 'dockerfilesNewController'
+		})
+		.state('connected.dockerfilesEdit', {
+			url: '/dashboard/dockerfiles/edit',
+			templateUrl: './views/dashboard.dockerfiles.new.html',
+			controller: 'dockerfilesEditController',
+			params: {
+				dockerfile: {}
+			}
 		});
 
 	$urlRouterProvider.otherwise('/');
@@ -199,8 +207,20 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			$scope.$digest();
 		});
 	}])
-	.controller('dockerfilesController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+	.controller('dockerfilesController', ['$scope', '$state', 'DockerConn', 'Dockerfile', function($scope, $state, DockerConn, Dockerfile) {
 		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+
+		Dockerfile.findAll(function(data) {
+			$scope.dockerfiles = data;
+		});
+
+		$scope.confirm = function() {
+			console.log('woot woot confirmed');
+		};
+
+		$scope.editDockerfile = function(dockerfile) {
+			$state.go('connected.dockerfilesEdit', {dockerfile: dockerfile});
+		};
 	}])
 	.controller('dockerfilesNewController', ['$scope', '$state', 'DockerConn', 'Dockerfile', function($scope, $state, DockerConn, Dockerfile) {
 		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
@@ -209,6 +229,23 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 
 		$scope.saveDockerfile = function() {
 			$scope.dockerfile.save();
+			$state.go('connected.dockerfiles');
+		};
+	}])
+	.controller('dockerfilesEditController', ['$scope', '$state', 'DockerConn', 'Dockerfile', function($scope, $state, DockerConn, Dockerfile) {
+		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
+		if(!$state.params.dockerfile) throw new Error('Dockerfile param missing');
+
+		$state.params.dockerfile.loadContent(function(err, data) {
+			$scope.dockerfile = $state.params.dockerfile;
+			$scope.$digest();
+		});
+
+		// $scope.dockerfile = Dockerfile.new();
+
+		$scope.saveDockerfile = function() {
+			$scope.dockerfile.save();
+			$state.go('connected.dockerfiles');
 		};
 	}]);
 }());
@@ -218,12 +255,61 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 'use strict';
 
 angular.module('Dogui.directives', [])
-	.directive('showAddConnection', ['$timeout', function($timeout) {
+	.directive('modaler', ['$timeout', function($timeout) {
 		return {
 			scope: {
-				showAddConnection: '='
+				confirmFn: '&',
+				cancelFn: '&',
+				modalTitle: '@',
+				modalBody: '@',
+				modalConfirmText: '@',
+				modalCancelText: '@'
 			},
 			link: function(scope, element, attrs) {
+				var primaryModal = $('#primaryModal'),
+					confirmButton = $('#primaryModal').find('.approve'),
+					cancelButton = $('#primaryModal').find('.deny'),
+					modalTitle = scope.modalTitle || 'Modal',
+					modalBody = scope.modalBody || 'Modal Body',
+					modalConfirmText = scope.modalConfirmText || 'Okay',
+					modalCancelText = scope.modalCancelText || 'Cancel';
+
+				// primaryModal.find('.header').text(modalTitle);
+				// primaryModal.find('.content').text(modalBody);
+				// primaryModal.find('.approve').text(modalConfirmText);
+				// primaryModal.find('.deny').text(modalCancelText);
+
+				primaryModal.modal('setting', {
+					onApprove: function(e) {
+						if(typeof confirmFn === 'function') {
+							var confirmed = confirmFn();
+							if(typeof confirmed.then === 'function') {
+								confirmed.then(function() {
+									primaryModal.modal('hide');
+								});
+							} else {
+								primaryModal.modal('hide');
+							}
+						}
+					},
+					onDeny: function(e) {
+						if(typeof cancelFn === 'function') {
+							var cancelled = cancelFn();
+							if(typeof cancelled.then === 'function') {
+								confirmed.then(function() {
+									primaryModal.modal('hide');
+								});
+							} else {
+								primaryModal.modal('hide');
+							}
+						}
+					}
+				});
+
+				element.on('click', function(e) {
+					e.preventDefault();
+					primaryModal.modal('show');
+				});
 			}
 		};
 	}]);
@@ -400,6 +486,8 @@ angular.module('Dogui.services', [])
 
 					data = db.dockerfiles.save({
 						name: this.name,
+						created: new Date(),
+						updated: new Date(),
 						filePath: this.filePath
 					});
 
@@ -412,14 +500,16 @@ angular.module('Dogui.services', [])
 
 					data = db.dockerfiles.update({_id: this._id}, {
 						name: this.name,
+						updated: new Date(),
 						filePath: this.filePath
 					}, {upsert: true});	
 				}	
 			},
 			loadContent: function(cb) {
-				fs.readFile(this.filePath, {encoding: 'utf8'}, function(err, data) {
+				fs.readFile('./dockerfiles/' + this.filePath, {encoding: 'utf8'}, function(err, data) {
+					this.body = data;
 					return cb(err, data);
-				});
+				}.bind(this));
 			}
 		};
 
@@ -434,7 +524,7 @@ angular.module('Dogui.services', [])
 				return cb(data);
 			},
 			findAll: function(cb) {
-				dv.loadCollections(['dockerfiles']);
+				db.loadCollections(['dockerfiles']);
 				var data = _.map(db.dockerfiles.find(), function(obj) {
 					return new Dockerfile(obj);
 				});
