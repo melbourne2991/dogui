@@ -298,10 +298,10 @@ angular.module('Dogui.directives', [])
 					modalConfirmText = scope.modalConfirmText || null,
 					modalCancelText = scope.modalCancelText || null;
 
-				primaryModal.find('.header').text(modalTitle);
-				primaryModal.find('.content').text(modalBody);
-				primaryModal.find('.approve').text(modalConfirmText);
-				primaryModal.find('.deny').text(modalCancelText);
+				// primaryModal.find('.header').text(modalTitle);
+				// primaryModal.find('.content').text(modalBody);
+				// primaryModal.find('.approve').text(modalConfirmText);
+				// primaryModal.find('.deny').text(modalCancelText);
 
 				primaryModal.modal('setting', {
 					onApprove: function(e) {
@@ -350,16 +350,6 @@ angular.module('Dogui.directives', [])
 					e.preventDefault();
 					pullDockerModal.modal('show');
 				});				
-			}
-		};
-	}])
-	.directive('shortTable', ['$timeout', function($timeout) {
-		return {
-			link: function(scope, element, attrs) {
-				$(element).dataTable({
-					paginate: false,
-					scrollY: 300
-				});
 			}
 		};
 	}]);

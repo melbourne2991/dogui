@@ -33,29 +33,32 @@
 
 	<div class="row">
 		<div class="column">
-		<h3 class="ui top attached header">Inactive Containers</h3>
+			<h3 class="ui top attached header">Inactive Containers</h3>
 
-		<table class="ui table bottom attached segment" short-table>
-			<thead>
-				<tr>
-					<th>Name</th>
-					<th>Image</th>
-					<th></th>
-					<th></th>
-				</tr>
-			</thead>
+			<table class="ui table attached">
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>Image</th>
+						<th></th>
+						<th></th>
+					</tr>
+				</thead>		
+			</table>
+
+			<table class="ui table bottom attached segment">
 				<tbody>
-				<tr ng-repeat="container in inactiveContainers">
-					<td ng-bind="container.meta.Names[0]"></td>
-					<td ng-bind="container.meta.Image"></td>
-					<td><i class="large green active play icon href" ng-click="startContainer(container)"></i></td>
-					<td><i class="large red remove icon href" ng-click="removeContainer(container)"></i></td>
-				</tr>
-				<tr ng-if="!inactiveContainers.length">
-					<td colspan="6"><span class="text-primary link" ui-sref="connections.new"> No running containers - add your first one</span></td>
-				</tr>
-			</tbody>
-		</table>
+					<tr ng-repeat="container in inactiveContainers">
+						<td ng-bind="container.meta.Names[0]"></td>
+						<td ng-bind="container.meta.Image"></td>
+						<td><i class="large green active play icon href" ng-click="startContainer(container)"></i></td>
+						<td><i class="large red remove icon href" ng-click="removeContainer(container)"></i></td>
+					</tr>
+					<tr ng-if="!inactiveContainers.length">
+						<td colspan="6"><span class="text-primary link" ui-sref="connections.new"> No running containers - add your first one</span></td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 	</div>
 </div>
