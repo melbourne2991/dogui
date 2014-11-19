@@ -23,7 +23,7 @@
 						<td ng-bind="dockerfile.created"></td>
 						<td ng-bind="dockerfile.updated"></td>
 						<td><i class="large edit sign icon href" ng-click="editDockerfile(dockerfile)"></i></td>
-						<td><i class="large remove red icon href" modaler confirm-fn="confirm()"></i></td>
+						<td><i class="large remove red icon href" modaler confirm-fn="confirmDelete(dockerfile)" modal-body="Are you sure you want delete this Dockerfile?" modal-title='Delete "{{ dockerfile.name }}"' modal-confirm-text="Yes, delete"></i></td>
 					</tr>
 					<tr ng-if="!dockerfiles.length">
 						<td colspan="6"><span class="text-primary link" ui-sref="connections.new"> No dockerfiles - add your first one</span></td>

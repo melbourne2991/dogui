@@ -4,3 +4,8 @@
 .ace_editor {
   height: 200px;
 }
+.short {
+  max-height: 400px;
+  overflow: scroll;
+  border: 1px solid #d4d4d5;
+}

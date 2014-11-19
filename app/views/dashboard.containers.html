@@ -35,7 +35,7 @@
 		<div class="column">
 		<h3 class="ui top attached header">Inactive Containers</h3>
 
-		<table class="ui table bottom attached segment">
+		<table class="ui table bottom attached segment" short-table>
 			<thead>
 				<tr>
 					<th>Name</th>
@@ -43,7 +43,7 @@
 					<th></th>
 					<th></th>
 				</tr>
-				</thead>
+			</thead>
 				<tbody>
 				<tr ng-repeat="container in inactiveContainers">
 					<td ng-bind="container.meta.Names[0]"></td>

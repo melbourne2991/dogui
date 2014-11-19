@@ -202,10 +202,31 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 		var dockerDaemon = DockerConn.current.daemon;
 
 		dockerDaemon.listImages(function(err, data) {
-			console.log(data);
 			$scope.images = data;
 			$scope.$digest();
 		});
+
+		$scope.imageToPull = {
+			repoTag: null
+		};
+
+		$scope.pullImage = function(repoTag) {
+			if(typeof $scope.imageToPull.repoTag === 'string') {
+				dockerDaemon.pull($scope.imageToPull.repoTag.trim(), function(err, stream) {
+					if(err) console.log(err);
+					console.log(stream);
+					// console.log(stream);
+
+					// stream.on('data', function() {
+					// 	console.log('downloading');
+					// });
+
+					// stream.on('end', function() {
+					// 	$state.go($state.current, {}, {reload: true});		
+					// });
+				});
+			}
+		};
 	}])
 	.controller('dockerfilesController', ['$scope', '$state', 'DockerConn', 'Dockerfile', function($scope, $state, DockerConn, Dockerfile) {
 		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
@@ -214,8 +235,10 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			$scope.dockerfiles = data;
 		});
 
-		$scope.confirm = function() {
-			console.log('woot woot confirmed');
+		$scope.confirmDelete = function(dockerfile) {
+			dockerfile.remove(function() {
+				$state.go($state.current, {}, {reload: true});
+			});
 		};
 
 		$scope.editDockerfile = function(dockerfile) {
@@ -258,6 +281,7 @@ angular.module('Dogui.directives', [])
 	.directive('modaler', ['$timeout', function($timeout) {
 		return {
 			scope: {
+				modalSelector: '=modaler',
 				confirmFn: '&',
 				cancelFn: '&',
 				modalTitle: '@',
@@ -266,13 +290,13 @@ angular.module('Dogui.directives', [])
 				modalCancelText: '@'
 			},
 			link: function(scope, element, attrs) {
-				var primaryModal = $('#primaryModal'),
-					confirmButton = $('#primaryModal').find('.approve'),
-					cancelButton = $('#primaryModal').find('.deny'),
-					modalTitle = scope.modalTitle || 'Modal',
-					modalBody = scope.modalBody || 'Modal Body',
-					modalConfirmText = scope.modalConfirmText || 'Okay',
-					modalCancelText = scope.modalCancelText || 'Cancel';
+				var primaryModal = scope.modalSelector || $('#primaryModal'),
+					confirmButton = primaryModal.find('.approve'),
+					cancelButton = primaryModal.find('.deny'),
+					modalTitle = scope.modalTitle || null,
+					modalBody = scope.modalBody || null,
+					modalConfirmText = scope.modalConfirmText || null,
+					modalCancelText = scope.modalCancelText || null;
 
 				primaryModal.find('.header').text(modalTitle);
 				primaryModal.find('.content').text(modalBody);
@@ -281,27 +305,31 @@ angular.module('Dogui.directives', [])
 
 				primaryModal.modal('setting', {
 					onApprove: function(e) {
-						if(typeof confirmFn === 'function') {
-							var confirmed = confirmFn();
-							if(typeof confirmed.then === 'function') {
+						if(typeof scope.confirmFn === 'function') {
+							var confirmed = scope.confirmFn();
+							if(confirmed && typeof confirmed.then === 'function') {
 								confirmed.then(function() {
 									primaryModal.modal('hide');
 								});
 							} else {
 								primaryModal.modal('hide');
 							}
+						} else {
+							primaryModal.modal('hide');	
 						}
 					},
 					onDeny: function(e) {
-						if(typeof cancelFn === 'function') {
-							var cancelled = cancelFn();
-							if(typeof cancelled.then === 'function') {
+						if(typeof scope.cancelFn === 'function') {
+							var cancelled = scope.cancelFn();
+							if(cancelled && typeof cancelled.then === 'function') {
 								confirmed.then(function() {
 									primaryModal.modal('hide');
 								});
 							} else {
 								primaryModal.modal('hide');
 							}
+						} else {
+							primaryModal.modal('hide');
 						}
 					}
 				});
@@ -309,6 +337,28 @@ angular.module('Dogui.directives', [])
 				element.on('click', function(e) {
 					e.preventDefault();
 					primaryModal.modal('show');
+				});
+			}
+		};
+	}])
+	.directive('pullDockerModal', ['$timeout', function($timeout) {
+		return {
+			link: function(scope, element, attrs) {
+				var pullDockerModal = $('#pullDockerModal');
+
+				element.on('click', function(e) {
+					e.preventDefault();
+					pullDockerModal.modal('show');
+				});				
+			}
+		};
+	}])
+	.directive('shortTable', ['$timeout', function($timeout) {
+		return {
+			link: function(scope, element, attrs) {
+				$(element).dataTable({
+					paginate: false,
+					scrollY: 300
 				});
 			}
 		};
@@ -480,8 +530,7 @@ angular.module('Dogui.services', [])
 
 				if(!this._id) {
 					fs.writeFile('./dockerfiles/' + this.filePath,  this.body, function(err, data) {
-						console.log(err);
-						console.log(data);
+						if(typeof cb === 'function') cb();
 					});
 
 					data = db.dockerfiles.save({
@@ -494,8 +543,7 @@ angular.module('Dogui.services', [])
 					this._id = data._id;			
 				} else {
 					fs.writeFile(this.filePath,  this.body, function(err, data) {
-						console.log(err);
-						console.log(data);
+						if(typeof cb === 'function') cb();
 					});
 
 					data = db.dockerfiles.update({_id: this._id}, {
@@ -504,6 +552,14 @@ angular.module('Dogui.services', [])
 						filePath: this.filePath
 					}, {upsert: true});	
 				}	
+			},
+			remove: function(cb) {
+				db.loadCollections(['dockerfiles']);
+				db.dockerfiles.remove({_id: this._id});
+
+				var data = this;
+
+				cb(data);
 			},
 			loadContent: function(cb) {
 				fs.readFile('./dockerfiles/' + this.filePath, {encoding: 'utf8'}, function(err, data) {

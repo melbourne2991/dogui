@@ -105,10 +105,31 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 		var dockerDaemon = DockerConn.current.daemon;
 
 		dockerDaemon.listImages(function(err, data) {
-			console.log(data);
 			$scope.images = data;
 			$scope.$digest();
 		});
+
+		$scope.imageToPull = {
+			repoTag: null
+		};
+
+		$scope.pullImage = function(repoTag) {
+			if(typeof $scope.imageToPull.repoTag === 'string') {
+				dockerDaemon.pull($scope.imageToPull.repoTag.trim(), function(err, stream) {
+					if(err) console.log(err);
+					console.log(stream);
+					// console.log(stream);
+
+					// stream.on('data', function() {
+					// 	console.log('downloading');
+					// });
+
+					// stream.on('end', function() {
+					// 	$state.go($state.current, {}, {reload: true});		
+					// });
+				});
+			}
+		};
 	}])
 	.controller('dockerfilesController', ['$scope', '$state', 'DockerConn', 'Dockerfile', function($scope, $state, DockerConn, Dockerfile) {
 		if(!DockerConn.current.connection || !DockerConn.current.daemon) return $state.go('connections.list');
@@ -117,8 +138,10 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			$scope.dockerfiles = data;
 		});
 
-		$scope.confirm = function() {
-			console.log('woot woot confirmed');
+		$scope.confirmDelete = function(dockerfile) {
+			dockerfile.remove(function() {
+				$state.go($state.current, {}, {reload: true});
+			});
 		};
 
 		$scope.editDockerfile = function(dockerfile) {

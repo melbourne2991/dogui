@@ -1,5 +1,14 @@
 <div class="ui grid">
 	<div class="row">
+		<div class="ui column">
+			<div class="ui action input fluid">
+			  <input type="text" placeholder='repo:tag, eg "ubuntu:14.04"' ng-model="imageToPull.repoTag">
+			  <div class="ui button positive" ng-click="pullImage()">Pull Image</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row">
 		<div class="column">
 		<h3 class="ui top attached header">Images</h3>
 

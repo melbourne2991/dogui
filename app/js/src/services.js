@@ -140,8 +140,7 @@ angular.module('Dogui.services', [])
 
 				if(!this._id) {
 					fs.writeFile('./dockerfiles/' + this.filePath,  this.body, function(err, data) {
-						console.log(err);
-						console.log(data);
+						if(typeof cb === 'function') cb();
 					});
 
 					data = db.dockerfiles.save({
@@ -154,8 +153,7 @@ angular.module('Dogui.services', [])
 					this._id = data._id;			
 				} else {
 					fs.writeFile(this.filePath,  this.body, function(err, data) {
-						console.log(err);
-						console.log(data);
+						if(typeof cb === 'function') cb();
 					});
 
 					data = db.dockerfiles.update({_id: this._id}, {
@@ -164,6 +162,14 @@ angular.module('Dogui.services', [])
 						filePath: this.filePath
 					}, {upsert: true});	
 				}	
+			},
+			remove: function(cb) {
+				db.loadCollections(['dockerfiles']);
+				db.dockerfiles.remove({_id: this._id});
+
+				var data = this;
+
+				cb(data);
 			},
 			loadContent: function(cb) {
 				fs.readFile('./dockerfiles/' + this.filePath, {encoding: 'utf8'}, function(err, data) {
