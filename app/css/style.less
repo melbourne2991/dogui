@@ -6,8 +6,16 @@
 	height: 200px;
 }
 
-.short {
-	max-height: 400px;
-	overflow: scroll;
-  	border: 1px solid #d4d4d5;
+.scrollable-table > .ui.table, .scrollable-table > table {
+	border-bottom: 0;
+}
+.scrollable-table > div {
+	outline: 1px solid #d0d0d0;
+	overflow-y: scroll;
+	max-height: 200px;
+}
+
+.scrollable-table > div > .ui.table, .scrollable-table > div > table {
+	border-top: 0;
+	border-bottom: 0;
 }

@@ -77,6 +77,36 @@ angular.module('Dogui.directives', [])
 				});				
 			}
 		};
+	}])
+	.directive('scrollableTable', ['$timeout', function($timeout) {
+		var template = '';
+
+		template+=	'<div class="scrollable-table">';
+		template+=		'<table class="ui table attached">';
+		template+=			'<thead>';
+		template+=			'</thead>';		
+		template+=		'</table>';
+		template+=		'<div>';
+		template+=			'<table class="ui table bottom attached segment">';
+		template+=				'<tbody>';
+		template+=				'</tbody>';
+		template+=			'</table>';
+		template+=		'</div>';
+		template+=	'</div>';
+
+		return {
+			transclude: true,
+			replace: true,
+			template: template,
+			link: function(scope, element, attrs, ctrl, ngTransclude) {
+				ngTransclude(scope, function(clone) {
+					var thead = angular.element(clone).find('thead'),
+						tbody = angular.element(clone).find('tbody');
+
+
+				});
+			}
+		};
 	}]);
 
 }());
