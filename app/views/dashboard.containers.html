@@ -1,64 +1,46 @@
 <div class="ui grid">
 	<div class="row">
 		<div class="column">
-		<h3 class="ui top attached header">Running Containers</h3>
-
-		<table class="ui table bottom attached segment">
-			<thead>
-				<tr>
-					<th>Name</th>
-					<th>Image</th>
-					<th>Port</th>
-					<th>Protocol</th>
-					<th></th>
-					<th></th>
-				</tr>
-				</thead>
-				<tbody>
-				<tr ng-repeat="container in containers">
-					<td ng-bind=""></td>
-					<td ng-bind=""></td>
-					<td ng-bind=""></td>
-					<td ng-bind=""></td>
-					<td ng-bind=""></td>
-					<td ng-bind=""></td>
-				</tr>
-				<tr ng-if="!containers.length">
-					<td colspan="6"><span class="text-primary link" ui-sref="connections.new"> No running containers - add your first one</span></td>
-				</tr>
-			</tbody>
-		</table>
-		</div>
-	</div>
-
-	<div class="row">
-		<div class="column">
 			<h3 class="ui top attached header">Inactive Containers</h3>
 
-			<table class="ui table attached">
+			<table scrollable-table>
 				<thead>
-					<tr>
-						<th>Name</th>
-						<th>Image</th>
-						<th></th>
-						<th></th>
-					</tr>
-				</thead>		
-			</table>
 
-			<table class="ui table bottom attached segment">
+				</thead>
+
 				<tbody>
-					<tr ng-repeat="container in inactiveContainers">
-						<td ng-bind="container.meta.Names[0]"></td>
-						<td ng-bind="container.meta.Image"></td>
-						<td><i class="large green active play icon href" ng-click="startContainer(container)"></i></td>
-						<td><i class="large red remove icon href" ng-click="removeContainer(container)"></i></td>
-					</tr>
-					<tr ng-if="!inactiveContainers.length">
-						<td colspan="6"><span class="text-primary link" ui-sref="connections.new"> No running containers - add your first one</span></td>
-					</tr>
+					
 				</tbody>
 			</table>
+
+			<div class="scrollable-table">
+				<table class="ui table attached">
+					<thead>
+						<tr>
+							<th width="40%">Name</th>
+							<th width="40%">Image</th>
+							<th></th>
+							<th></th>
+						</tr>
+					</thead>		
+				</table>
+
+				<div>
+					<table class="ui table bottom attached segment">
+						<tbody>
+							<tr ng-repeat="container in inactiveContainers">
+								<td ng-bind="container.meta.Names[0]" width="40%"></td>
+								<td ng-bind="container.meta.Image" width="40%"></td>
+								<td><i class="large green active play icon href" ng-click="startContainer(container)"></i></td>
+								<td><i class="large red remove icon href" ng-click="removeContainer(container)"></i></td>
+							</tr>
+							<tr ng-if="!inactiveContainers.length">
+								<td colspan="6"><span class="text-primary link" ui-sref="connections.new"> No running containers - add your first one</span></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
 		</div>
 	</div>
 </div>
