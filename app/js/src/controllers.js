@@ -117,16 +117,36 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			if(typeof $scope.imageToPull.repoTag === 'string') {
 				dockerDaemon.pull($scope.imageToPull.repoTag.trim(), function(err, stream) {
 					if(err) console.log(err);
-					console.log(stream);
-					// console.log(stream);
 
-					// stream.on('data', function() {
-					// 	console.log('downloading');
-					// });
+					var result = '';
 
-					// stream.on('end', function() {
-					// 	$state.go($state.current, {}, {reload: true});		
-					// });
+					stream.on('data', function(data) {
+						console.log('DATA START');
+						console.log(data.toString());
+						console.log('DATA END');
+
+						result += data.toString();
+					});
+
+					stream.on('error', function(data) {
+						console.log('ERROR START');
+						console.log(data.toString());
+						console.log('ERROR END');
+					});
+
+					stream.on('end', function(data) {
+						console.log('END START');
+						console.log(data.toString());
+						console.log('END FINISH');
+
+						console.log('--RESULT--');
+						console.log(result);
+						console.log('--END RESULT--');
+
+						$state.go($state.current, {}, {reload: true});		
+					});
+
+					stream.resume();
 				});
 			}
 		};
