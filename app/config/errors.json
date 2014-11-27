@@ -1,0 +1,9 @@
+{
+	"connectionsError": {
+		"problemConnection": {
+			"ui-title": "Could not connect to docker daemon",
+			"ui-message": "There was a problem connecting to the docker daemon, please check that all connection details are correct and the docker daemon is running.",
+			"errorType": "error"
+		}
+	}
+}

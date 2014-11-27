@@ -1,3 +1,5 @@
+<div ng-repeat="error in errors" error-message="error"></div>
+
 <h3 class="ui top attached header inverted">Docker Connections</h3>
 
 <table class="ui table bottom attached segment">
@@ -18,11 +20,10 @@
 			<td ng-bind="connection.config.port"></td>
 			<td ng-bind="connection.config.protocol"></td>
 			<td><i class="large edit sign icon link" ng-click="editConnection(connection)"></i></td>
-			<td><span ng-click="connectToConnection(connection)" class="ui tiny button">Connect</span></td>
+			<td><span ng-click="connectToConnection(connection, $index)" class="ui tiny button" ng-class="{loading: loadingConnection === $index}">Connect</span></td>
 		</tr>
 		<tr ng-if="!dockerConnections.length">
 			<td colspan="4"><span class="text-primary link" ui-sref="connections.new"> No connections - add your first one</span></td>
 		</tr>
 	</tbody>
 </table>
-

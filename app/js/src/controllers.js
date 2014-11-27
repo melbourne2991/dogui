@@ -11,18 +11,32 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			$scope.currentTab = data;
 		});
 	}])
-	.controller('connectionsListController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+	.controller('connectionsListController', ['$scope', '$state', 'DockerConn', 'ErrorHandler', function($scope, $state, DockerConn, ErrorHandler) {
 		$scope.$emit('tabChange', $state.current.name);
+
+		var errorHandler = ErrorHandler.new($scope);
 
 		$scope.editConnection = function(connection) {
 			$state.go('connections.edit', {connection: connection}, {});
 		};
 
-		$scope.connectToConnection = function(connection) {
+		$scope.loadingConnection = false;
+
+		$scope.connectToConnection = function(connection, index) {
 			DockerConn.current.connection = connection;
 			DockerConn.current.daemon = connection.init();
 
-			$state.go('connected.containers');
+			$scope.loadingConnection = index;
+
+			DockerConn.current.daemon.info(function(err, data) {
+				if(err) {
+					$scope.loadingConnection = false;
+					errorHandler.newError('connectionsError problemConnection');
+					return;
+				}
+
+				return $state.go('connected.containers');
+			});	
 		};
 
 		DockerConn.findAll(function(connections, err) {
@@ -118,35 +132,8 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 				dockerDaemon.pull($scope.imageToPull.repoTag.trim(), function(err, stream) {
 					if(err) console.log(err);
 
-					var result = '';
-
-					stream.on('data', function(data) {
-						console.log('DATA START');
-						console.log(data.toString());
-						console.log('DATA END');
-
-						result += data.toString();
-					});
-
-					stream.on('error', function(data) {
-						console.log('ERROR START');
-						console.log(data.toString());
-						console.log('ERROR END');
-					});
-
-					stream.on('end', function(data) {
-						console.log('END START');
-						console.log(data.toString());
-						console.log('END FINISH');
-
-						console.log('--RESULT--');
-						console.log(result);
-						console.log('--END RESULT--');
-
-						$state.go($state.current, {}, {reload: true});		
-					});
-
-					stream.resume();
+					$scope.pullImageStream = stream;
+					$scope.$digest();
 				});
 			}
 		};

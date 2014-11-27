@@ -108,18 +108,32 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 			$scope.currentTab = data;
 		});
 	}])
-	.controller('connectionsListController', ['$scope', '$state', 'DockerConn', function($scope, $state, DockerConn) {
+	.controller('connectionsListController', ['$scope', '$state', 'DockerConn', 'ErrorHandler', function($scope, $state, DockerConn, ErrorHandler) {
 		$scope.$emit('tabChange', $state.current.name);
+
+		var errorHandler = ErrorHandler.new($scope);
 
 		$scope.editConnection = function(connection) {
 			$state.go('connections.edit', {connection: connection}, {});
 		};
 
-		$scope.connectToConnection = function(connection) {
+		$scope.loadingConnection = false;
+
+		$scope.connectToConnection = function(connection, index) {
 			DockerConn.current.connection = connection;
 			DockerConn.current.daemon = connection.init();
 
-			$state.go('connected.containers');
+			$scope.loadingConnection = index;
+
+			DockerConn.current.daemon.info(function(err, data) {
+				if(err) {
+					$scope.loadingConnection = false;
+					errorHandler.newError('connectionsError problemConnection');
+					return;
+				}
+
+				return $state.go('connected.containers');
+			});	
 		};
 
 		DockerConn.findAll(function(connections, err) {
@@ -215,35 +229,8 @@ angular.module('Dogui.controllers', ['Dogui.services'])
 				dockerDaemon.pull($scope.imageToPull.repoTag.trim(), function(err, stream) {
 					if(err) console.log(err);
 
-					var result = '';
-
-					stream.on('data', function(data) {
-						console.log('DATA START');
-						console.log(data.toString());
-						console.log('DATA END');
-
-						result += data.toString();
-					});
-
-					stream.on('error', function(data) {
-						console.log('ERROR START');
-						console.log(data.toString());
-						console.log('ERROR END');
-					});
-
-					stream.on('end', function(data) {
-						console.log('END START');
-						console.log(data.toString());
-						console.log('END FINISH');
-
-						console.log('--RESULT--');
-						console.log(result);
-						console.log('--END RESULT--');
-
-						$state.go($state.current, {}, {reload: true});		
-					});
-
-					stream.resume();
+					$scope.pullImageStream = stream;
+					$scope.$digest();
 				});
 			}
 		};
@@ -402,6 +389,90 @@ angular.module('Dogui.directives', [])
 				});
 			}
 		};
+	}])
+	.directive('errorMessage', [function() {
+		var	template = '';
+
+		template+= '<div class="ui message" ng-class="errorType">';
+		template+= '<i class="close icon" ng-click="removeError()"></i>';
+		template+= '<div class="header" ng-bind="errorObj.err[\'ui-title\']" ng-if="errorObj.err[\'ui-title\']"></div>';
+		template+= '<p ng-bind="errorObj.err[\'ui-message\']"></p>';
+		template+= '</div>';
+
+		return {
+			template: template,
+			replace: true,
+			scope: {
+				errorObj: '=errorMessage'
+			},
+			link: function(scope, element, attrs, ctrl) {
+				var errorTypes = {
+					error: 'negative',
+					warning: 'warning'
+				};	
+
+				scope.errorType = errorTypes[scope.errorObj.err.errorType];
+				scope.removeError = function () {
+					scope.errorObj.remove();
+				};
+			}
+		};
+	}])
+	.directive('consoleOutput', [function() {
+		var template = '';
+
+		template+=	'<div class="console">';
+		template+=		'<div class="console-output images">';
+		template+=		'</div>';
+		template+=		'<div class="clear-log" ng-click="clearLog()">Clear</div>';
+		template+=	'</div>';
+
+		return {
+			replace: true,
+			template: template,
+			scope: {
+				stream: '=consoleOutput'
+			},
+			link: function(scope, element, attrs, ctrl) {
+				var output = angular.element(element.find('.console-output'));
+
+				scope.clearLog = function() {
+					console.log('in clearlog');
+					output.html('');
+				};
+
+				scope.$watch('stream', function(n, o) {
+					if(n && typeof n.on === 'function') {
+						var stream = n;
+						stream.on('data', function(data) {
+							if(data) {
+								var obj = JSON.parse(data.toString()),
+									str = '<div class="output-row">';
+
+								str += obj.id ? '<div class="left"><span class="image-id">' + obj.id + '</span></div>' : '<div class="left"></div>';
+								str += '<div class="right">';
+								str += obj.status ? obj.status + ' ' : '';
+								str += obj.progress ? obj.progress + ' ' : '';
+								str += '</div>';
+								str += '</div>';
+								str += '</div>';
+
+								output.append(str);
+								output[0].scrollTop = output[0].scrollHeight;
+							}
+						});
+
+						stream.on('error', function(data) {
+
+						});
+
+						stream.on('end', function(data) {
+							console.log('THIS IS THE END');
+						});
+					}
+				});
+			}
+ 		};
 	}]);
 
 }());
@@ -443,6 +514,54 @@ var Dockerode = require('dockerode'),
 	};
 
 angular.module('Dogui.services', [])
+	.service('ErrorHandler', ['$http', function($http) {
+		var ErrorHandler = function($scope) {
+			this.$scope = $scope;
+			this.$scope.errors = [];
+			this.errors = $http.get('./config/errors.json');
+		};
+
+		var Err = function(id, detail, handler) {
+			this.handler = handler;
+			this.detail = detail;
+
+			var errorLocation = id.split(' ');
+
+			handler.errors.then(function(results) {
+				var json = results.data,
+					errCat = json[errorLocation[0]];
+
+				if(!errCat) {
+					return console.log('Error at "' + errorLocation[0] + ' ' + errorLocation[1] + '"" does not exist');
+				}
+
+				var theError = json[errorLocation[0]][errorLocation[1]];
+
+				if(!theError) {
+					return console.log('Error at "' + errorLocation[0] + ' ' + errorLocation[1] + '" does not exist');
+				}
+
+				this.err = theError;
+			}.bind(this));
+
+			this.scopeRef = handler.$scope.errors.push(this);
+		};
+
+		Err.prototype.remove = function() {
+			this.handler.$scope.errors.splice(this.handler.$scope.errors.indexOf(this.scopeRef), 1);
+		};
+
+		ErrorHandler.prototype.newError = function(id, detail) {
+			if(!detail) detail = null;
+			return new Err(id, detail, this);
+		};
+
+		return {
+			new: function($scope) {
+				return new ErrorHandler($scope);
+			}
+		};
+	}])
 	.service('fs', [function() {
 		return fs;
 	}])

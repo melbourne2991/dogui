@@ -107,6 +107,90 @@ angular.module('Dogui.directives', [])
 				});
 			}
 		};
+	}])
+	.directive('errorMessage', [function() {
+		var	template = '';
+
+		template+= '<div class="ui message" ng-class="errorType">';
+		template+= '<i class="close icon" ng-click="removeError()"></i>';
+		template+= '<div class="header" ng-bind="errorObj.err[\'ui-title\']" ng-if="errorObj.err[\'ui-title\']"></div>';
+		template+= '<p ng-bind="errorObj.err[\'ui-message\']"></p>';
+		template+= '</div>';
+
+		return {
+			template: template,
+			replace: true,
+			scope: {
+				errorObj: '=errorMessage'
+			},
+			link: function(scope, element, attrs, ctrl) {
+				var errorTypes = {
+					error: 'negative',
+					warning: 'warning'
+				};	
+
+				scope.errorType = errorTypes[scope.errorObj.err.errorType];
+				scope.removeError = function () {
+					scope.errorObj.remove();
+				};
+			}
+		};
+	}])
+	.directive('consoleOutput', [function() {
+		var template = '';
+
+		template+=	'<div class="console">';
+		template+=		'<div class="console-output images">';
+		template+=		'</div>';
+		template+=		'<div class="clear-log" ng-click="clearLog()">Clear</div>';
+		template+=	'</div>';
+
+		return {
+			replace: true,
+			template: template,
+			scope: {
+				stream: '=consoleOutput'
+			},
+			link: function(scope, element, attrs, ctrl) {
+				var output = angular.element(element.find('.console-output'));
+
+				scope.clearLog = function() {
+					console.log('in clearlog');
+					output.html('');
+				};
+
+				scope.$watch('stream', function(n, o) {
+					if(n && typeof n.on === 'function') {
+						var stream = n;
+						stream.on('data', function(data) {
+							if(data) {
+								var obj = JSON.parse(data.toString()),
+									str = '<div class="output-row">';
+
+								str += obj.id ? '<div class="left"><span class="image-id">' + obj.id + '</span></div>' : '<div class="left"></div>';
+								str += '<div class="right">';
+								str += obj.status ? obj.status + ' ' : '';
+								str += obj.progress ? obj.progress + ' ' : '';
+								str += '</div>';
+								str += '</div>';
+								str += '</div>';
+
+								output.append(str);
+								output[0].scrollTop = output[0].scrollHeight;
+							}
+						});
+
+						stream.on('error', function(data) {
+
+						});
+
+						stream.on('end', function(data) {
+							console.log('THIS IS THE END');
+						});
+					}
+				});
+			}
+ 		};
 	}]);
 
 }());

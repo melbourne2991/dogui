@@ -13,6 +13,54 @@ var Dockerode = require('dockerode'),
 	};
 
 angular.module('Dogui.services', [])
+	.service('ErrorHandler', ['$http', function($http) {
+		var ErrorHandler = function($scope) {
+			this.$scope = $scope;
+			this.$scope.errors = [];
+			this.errors = $http.get('./config/errors.json');
+		};
+
+		var Err = function(id, detail, handler) {
+			this.handler = handler;
+			this.detail = detail;
+
+			var errorLocation = id.split(' ');
+
+			handler.errors.then(function(results) {
+				var json = results.data,
+					errCat = json[errorLocation[0]];
+
+				if(!errCat) {
+					return console.log('Error at "' + errorLocation[0] + ' ' + errorLocation[1] + '"" does not exist');
+				}
+
+				var theError = json[errorLocation[0]][errorLocation[1]];
+
+				if(!theError) {
+					return console.log('Error at "' + errorLocation[0] + ' ' + errorLocation[1] + '" does not exist');
+				}
+
+				this.err = theError;
+			}.bind(this));
+
+			this.scopeRef = handler.$scope.errors.push(this);
+		};
+
+		Err.prototype.remove = function() {
+			this.handler.$scope.errors.splice(this.handler.$scope.errors.indexOf(this.scopeRef), 1);
+		};
+
+		ErrorHandler.prototype.newError = function(id, detail) {
+			if(!detail) detail = null;
+			return new Err(id, detail, this);
+		};
+
+		return {
+			new: function($scope) {
+				return new ErrorHandler($scope);
+			}
+		};
+	}])
 	.service('fs', [function() {
 		return fs;
 	}])
